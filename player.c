@@ -659,7 +659,10 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  mvwprintw(win, bot_row, 2, "%s%s %s%s", state==PLAYING?"▶":state==PAUSED?"⏸":"⏹", artist_str, song_name, loop_str);
  mvwprintw(win, bot_row, col_w-30, "%dHz %dch", rate, atomic_load(&g_state.num_channels));
  } else {
- mvwprintw(win, bot_row, 2, "Tab切换面板 ↑↓选择 q退出 Ctrl+R刷新");
+ const char *hlp_loop = "";
+ if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
+ else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
+ mvwprintw(win, bot_row, 2, "Tab切换面板 ↑↓选择 q退出 Ctrl+R刷新%s", hlp_loop);
  }
  wattroff(win, COLOR_PAIR(3));
 
