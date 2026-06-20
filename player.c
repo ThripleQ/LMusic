@@ -521,7 +521,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  dname = dname ? dname + 1 : dirs[selected];
  strncat(title_line, dname, sizeof(title_line)-strlen(title_line)-1);
  }
- strncat(title_line, "  |  Simple Player", sizeof(title_line)-strlen(title_line)-1);
+ strncat(title_line, "  |  LMusic", sizeof(title_line)-strlen(title_line)-1);
  mvwprintw(win, 0, 2, "%-*s", col_w-4, title_line);
  wattroff(win, COLOR_PAIR(1));
 

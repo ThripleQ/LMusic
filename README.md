@@ -1,6 +1,6 @@
-# simple-player
+# LMusic
 
-一个轻量级终端音乐播放器，支持本地音频播放和双面板目录浏览。
+一个轻量级LMusic - 终端音乐播放器，支持本地音频播放和双面板目录浏览。
 
 ## 功能
 
@@ -56,8 +56,8 @@ gcc -O2 player.c decoder.c -lasound -lncurses -lpthread \
 
 ## 配置文件
 
-- 目录列表: `~/.config/simple-player/dirs`
-- 歌曲缓存: `~/.cache/simple-player/library.db`
+- 目录列表: `~/.config/LMusic/dirs`
+- 歌曲缓存: `~/.cache/LMusic/library.db`
 
 删除缓存后重启会自动重新扫描。
 
