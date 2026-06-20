@@ -1,0 +1,20 @@
+# 编译产物
+player
+test_decode
+wav_play
+wav_info
+*.o
+
+# 用户缓存和配置
+.cache/
+.config/
+
+# 大音频文件（> 10MB）
+long_test.wav
+G.E.M.邓紫棋*.flac
+MyGO!!!!!*.mp3
+
+# 编辑器
+*.swp
+*.swo
+*~
