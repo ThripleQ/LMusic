@@ -616,27 +616,23 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  if (d == pi) marker = '>';  // 当前播放歌曲所在目录
  if (active_panel == 0 && d == selected && d == netease_vdir_idx) marker = '>';
  int drow = 2 + (d - dir_scroll);
- if (d == netease_vdir_idx) {
- // 网易云：永远亮红色（选中不变色）
  if (active_panel == 0 && d == selected) {
+ // 选中行：清行 + 左右红竖线 + 选中色
+ if (d == netease_vdir_idx) {
   wattron(win, COLOR_PAIR(6) | A_BOLD);
-  mvwaddstr(win, drow, 0, "▐");
-  mvwprintw(win, drow, 2, "%c %s", marker, dname);
-  mvwaddstr(win, drow, left_w, "▌");
-  wattroff(win, COLOR_PAIR(6) | A_BOLD);
  } else {
-  wattron(win, COLOR_PAIR(6) | A_BOLD);
-  mvwprintw(win, drow, 2, "%c %s", marker, dname);
-  wattroff(win, COLOR_PAIR(6) | A_BOLD);
+  wattron(win, COLOR_PAIR(2) | A_BOLD);
  }
- } else if (active_panel == 0 && d == selected) {
- wattron(win, COLOR_PAIR(6) | A_BOLD);
+ mvwhline(win, drow, 1, ' ', left_w - 1);
  mvwaddstr(win, drow, 0, "▐");
- wattroff(win, COLOR_PAIR(6) | A_BOLD);
- wattron(win, COLOR_PAIR(2) | A_BOLD);
  mvwprintw(win, drow, 2, "%c %s", marker, dname);
- mvwaddstr(win, drow, left_w, "▌");
+ mvwaddstr(win, drow, left_w - 1, "▌");
+ wattroff(win, COLOR_PAIR(6) | A_BOLD);
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
+ } else if (d == netease_vdir_idx) {
+ wattron(win, COLOR_PAIR(6) | A_BOLD);
+ mvwprintw(win, drow, 2, "%c %s", marker, dname);
+ wattroff(win, COLOR_PAIR(6) | A_BOLD);
  } else {
  int has_songs = 0;
  for (int i = 0; i < cur_total; i++) {
