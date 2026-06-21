@@ -1267,7 +1267,7 @@ int main(int argc, char *argv[]) {
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
- mousemask(BUTTON1_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
+ mousemask(BUTTON1_PRESSED | BUTTON3_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
 
  curs_set(0);
  timeout(30);
@@ -1697,6 +1697,19 @@ input:
    else if (active_panel == 0) { if (dir_scroll < dir_count - list_rows) dir_scroll++; }
    break;
   }
+  // ── 右键 = ESC ──
+  if (ev.bstate & BUTTON3_PRESSED) {
+   help_dismissed = 1;
+   if (netease_mode && netease_submode > 0) {
+    load_netease_menu();
+    netease_mode = 1;
+    song_sel = 0;
+   } else {
+    quitting = 0;
+   }
+   break;
+  }
+
   if (!(ev.bstate & BUTTON1_PRESSED)) break;
 
   // ── 左面板 ──
