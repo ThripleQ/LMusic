@@ -1675,6 +1675,8 @@ input:
    int dir_idx = ev.y - brow + dir_scroll;
    if (dir_idx >= 0 && dir_idx < dir_count) {
     selected = dir_idx;
+    active_panel = 0;
+    song_sel = 0; song_scroll = 0;
     if (selected == netease_vdir_idx && !netease_mode) {
      load_netease_menu(); netease_mode = 1;
     } else if (selected != netease_vdir_idx && netease_mode) {
@@ -1685,6 +1687,7 @@ input:
   }
   // 右面板：点击歌曲
   if (ev.x > lw && ev.y >= brow && ev.y < brow + list_rows) {
+   active_panel = 1;
    Song *slist = netease_mode ? ne_playlist : playlist;
    int stotal = netease_mode ? ne_count : atomic_load(&song_count);
    const char *sdir = "";
@@ -1698,15 +1701,15 @@ input:
     matched++;
     if (matched == song_scroll + (ev.y - brow) + 1) {
      song_sel = matched - 1;
-     // 双击检测：800ms 内同行第二次按下算双击
+     // 双击检测：800ms 内同逻辑索引第二次按下算双击
      static struct timespec last_mclick = {0, 0};
-     static int last_mrow = -1;
+     static int last_db_idx = -1;
      struct timespec now_t;
      clock_gettime(CLOCK_MONOTONIC, &now_t);
      long long ms = (now_t.tv_sec - last_mclick.tv_sec) * 1000LL + (now_t.tv_nsec - last_mclick.tv_nsec) / 1000000LL;
-     int is_dbl = (last_mrow == ev.y && ms > 0 && ms < 800);
+     int is_dbl = (last_db_idx == song_sel && ms > 0 && ms < 800);
      last_mclick = now_t;
-     last_mrow = ev.y;
+     last_db_idx = song_sel;
      if (is_dbl) {
       int cnt2 = 0, target2 = -1;
       Song *songs2 = netease_mode ? ne_playlist : playlist;
@@ -1721,7 +1724,8 @@ input:
        // 网易云菜单项（ID 以 __ 开头）：触发菜单动作
        if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') {
         int sel = song_sel;
-        if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
+        if (sel == 0) { /*搜索需键盘输入，不做处理*/ }
+        else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
         else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "加载推荐..."); }
         else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "加载热歌榜..."); }
         else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单..."); }
