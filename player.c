@@ -1270,7 +1270,7 @@ int main(int argc, char *argv[]) {
  mousemask(BUTTON1_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
 
  curs_set(0);
- timeout(10);
+ timeout(30);
  set_escdelay(0);
 
  int selected = init_dir, running = 1, col_w;
@@ -1422,7 +1422,7 @@ input:
      mvwaddch(stdscr, sr - 2, 2 + sp - 1, c);
     }
    }
-   noecho(); curs_set(0); timeout(10);
+   noecho(); curs_set(0); timeout(30);
    if (netease_search_buf[0]) {
     netease_submode = 1;
     char cmd[1024];
@@ -1764,7 +1764,7 @@ input:
         mvwaddch(stdscr, brows - 2, 2 + sp2 - 1, c);
        }
       }
-      noecho(); curs_set(0); timeout(10);
+      noecho(); curs_set(0); timeout(30);
       if (netease_search_buf[0]) {
        char sq[256]; int si = 0;
        for (const char *p = netease_search_buf; *p && si < 248; p++) {
