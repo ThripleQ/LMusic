@@ -1407,7 +1407,21 @@ input:
    int sr = getmaxy(stdscr);
    mvwhline(stdscr, sr - 2, 0, ' ', col_w);
    mvwprintw(stdscr, sr - 2, 2, "搜索: ");
-   wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
+   int sp = 0; netease_search_buf[0] = '\0';
+   timeout(100); curs_set(1);
+   while (1) {
+    int c = getch();
+    if (c == '\n' || c == '\r') break;
+    if (c == 27) { netease_search_buf[0] = '\0'; sp = 0; break; }
+    if (c == ERR) continue;
+    if ((c == 127 || c == KEY_BACKSPACE) && sp > 0) {
+     sp--; netease_search_buf[sp] = '\0';
+     mvwaddch(stdscr, sr - 2, 2 + sp, ' '); wmove(stdscr, sr - 2, 2 + sp);
+    } else if (c >= 32 && c < 127 && sp < (int)sizeof(netease_search_buf)-1) {
+     netease_search_buf[sp++] = c; netease_search_buf[sp] = '\0';
+     mvwaddch(stdscr, sr - 2, 2 + sp - 1, c);
+    }
+   }
    noecho(); curs_set(0); timeout(30);
    if (netease_search_buf[0]) {
     netease_submode = 1;
@@ -1735,7 +1749,21 @@ input:
       timeout(-1); echo(); curs_set(1);
       mvwhline(stdscr, brows - 2, 0, ' ', bcols);
       mvwprintw(stdscr, brows - 2, 2, "搜索: ");
-      wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
+      int sp2 = 0; netease_search_buf[0] = '\0';
+      timeout(100); curs_set(1);
+      while (1) {
+       int c = getch();
+       if (c == '\n' || c == '\r') break;
+       if (c == 27) { netease_search_buf[0] = '\0'; sp2 = 0; break; }
+       if (c == ERR) continue;
+       if ((c == 127 || c == KEY_BACKSPACE) && sp2 > 0) {
+        sp2--; netease_search_buf[sp2] = '\0';
+        mvwaddch(stdscr, brows - 2, 2 + sp2, ' '); wmove(stdscr, brows - 2, 2 + sp2);
+       } else if (c >= 32 && c < 127 && sp2 < (int)sizeof(netease_search_buf)-1) {
+        netease_search_buf[sp2++] = c; netease_search_buf[sp2] = '\0';
+        mvwaddch(stdscr, brows - 2, 2 + sp2 - 1, c);
+       }
+      }
       noecho(); curs_set(0); timeout(30);
       if (netease_search_buf[0]) {
        char sq[256]; int si = 0;
