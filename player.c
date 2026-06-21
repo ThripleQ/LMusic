@@ -77,6 +77,7 @@ static atomic_int song_count = 0;
 static int dir_counts[64];
 static int active_panel = 0;
 static int quitting = 0;  // 退出确认标志
+static time_t last_enter = 0;  // Enter 防抖
 static volatile sig_atomic_t sigint_caught = 0;
 
 static void handle_sigint(int sig) { sigint_caught = 1; }
@@ -1399,6 +1400,9 @@ input:
    }
   }
   if (target < 0) break;
+  // Enter 防抖：500ms 内不重复发请求
+  if (time(NULL) - last_enter < 1) { break; }
+  last_enter = time(NULL);
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
    mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
