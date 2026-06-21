@@ -1082,18 +1082,16 @@ input:
 
  // ── 播放网易云歌曲 ──
  if (selected == netease_vdir_idx && netease_submode > 0) {
-  const char *dname = dirs[selected];
   int cnt = 0, target = -1;
-  for (int i = 0; i < atomic_load(&song_count); i++) {
-   if (strcmp(playlist[i].aux_label, dname) == 0) {
+  for (int i = 0; i < ne_count; i++) {
+   if (strcmp(ne_playlist[i].aux_label, "网易云") == 0) {
     if (cnt == song_sel) { target = i; break; }
     cnt++;
    }
   }
   if (target < 0) break;
   char url[512];
-  if (netease_song_url(playlist[target].id, url, sizeof(url)) != 0) {
-   // 需要登录
+  if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
    mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
    mvwprintw(stdscr, getmaxy(stdscr)-1, 2, "⚠ 需要登录网易云，按 l 扫码登录");
    wrefresh(stdscr);
