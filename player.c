@@ -867,11 +867,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    }
    pclose(fp);
   }
- } else if (quitting) {
-  mvwhline(win, info_row, 0, ' ', col_w);
-  wattron(win, COLOR_PAIR(3));
-  mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
-  wattroff(win, COLOR_PAIR(3));
  } else if (loading) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
@@ -895,14 +890,18 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (pi >= 0 && pi < cur_total) {
   // ── 信息行（白字蓝底，无状态图标）──
   wattron(win, COLOR_PAIR(3));
-  mvwhline(win, info_row, 0, ' ', col_w);
-  // 左：文件夹名  右：歌曲名
-  mvwprintw(win, info_row, 2, "%s", cur_list[pi].aux_label);
-  mvwaddstr(win, info_row, left_w, "│");
-  if (cur_list[pi].artist[0])
-   mvwprintw(win, info_row, left_w + 2, "%s - %s", cur_list[pi].artist, cur_list[pi].title);
-  else
-   mvwprintw(win, info_row, left_w + 2, "%s", cur_list[pi].title);
+    mvwhline(win, info_row, 0, ' ', col_w);
+  if (quitting) {
+   mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
+  } else {
+   // 左：文件夹名  右：歌曲名
+   mvwprintw(win, info_row, 2, "%s", cur_list[pi].aux_label);
+   mvwaddstr(win, info_row, left_w, "│");
+   if (cur_list[pi].artist[0])
+    mvwprintw(win, info_row, left_w + 2, "%s - %s", cur_list[pi].artist, cur_list[pi].title);
+   else
+    mvwprintw(win, info_row, left_w + 2, "%s", cur_list[pi].title);
+  }
   wattroff(win, COLOR_PAIR(3));
 
   // ── 进度条行（黑字白底）──
@@ -953,14 +952,18 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    }
   }
   wattron(win, COLOR_PAIR(3));
-  mvwhline(win, info_row, 0, ' ', col_w);
-  mvwprintw(win, info_row, 2, "%s", sdname);
-  mvwaddstr(win, info_row, left_w, "│");
-  if (seltarget >= 0) {
-   if (slist[seltarget].artist[0])
-    mvwprintw(win, info_row, left_w + 2, "%s - %s", slist[seltarget].artist, slist[seltarget].title);
-   else
-    mvwprintw(win, info_row, left_w + 2, "%s", slist[seltarget].title);
+    mvwhline(win, info_row, 0, ' ', col_w);
+  if (quitting) {
+   mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
+  } else {
+   mvwprintw(win, info_row, 2, "%s", sdname);
+   mvwaddstr(win, info_row, left_w, "│");
+   if (seltarget >= 0) {
+    if (slist[seltarget].artist[0])
+     mvwprintw(win, info_row, left_w + 2, "%s - %s", slist[seltarget].artist, slist[seltarget].title);
+    else
+     mvwprintw(win, info_row, left_w + 2, "%s", slist[seltarget].title);
+   }
   }
   wattroff(win, COLOR_PAIR(3));
   // 静默进度条（与播放时完全一致）
