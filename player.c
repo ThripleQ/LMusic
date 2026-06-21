@@ -1221,14 +1221,10 @@ int main(int argc, char *argv[]) {
     } else break;
    }
    if (loading_frame % 6 == 0 && loading_filled < 20) loading_filled++;
-  } else if (loading_done && loading_frame < 60) {
-   // 最小展示时间：至少 2 秒再冲刺
-   if (loading_frame % 6 == 0 && loading_filled < 20) loading_filled++;
-  } else if (loading_done) {
-   // 冲刺：每 2 帧 1 格（约 1.2s 填满）
-   if (loading_frame % 2 == 0) loading_filled++;
-   if (loading_filled > 20) { loading = 0; loading_done = 0; process_loading_result(); }
-  }
+   } else if (loading_done) {
+    // CLI完成 -> 冲刺：每帧1格快速填满
+    if (loading_filled++ >= 20) { loading = 0; loading_done = 0; process_loading_result(); }
+   }
  }
 
  // 网易云目录切换：选中时自动加载菜单
