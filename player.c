@@ -753,10 +753,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  else
  strncpy(line, cur_list[i].title, sizeof(line)-1);
 
- char dur_str[32] = "";
- if (cur_list[i].fee > 0)
-  snprintf(dur_str, sizeof(dur_str), "VIP %d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
- else if (cur_list[i].duration_sec > 0)
+ char dur_str[16] = "";
+ if (cur_list[i].duration_sec > 0)
  snprintf(dur_str, sizeof(dur_str), "%d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
 
  char marker = ' ';
@@ -1404,7 +1402,7 @@ input:
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
    mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
-   mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "⚠ 需要登录网易云，按 l 扫码登录");
+   mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "🔒 无权限播放");
    wrefresh(stdscr);
    break;
   }
