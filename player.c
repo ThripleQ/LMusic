@@ -494,8 +494,8 @@ static int format_time(char *buf, size_t sz, snd_pcm_uframes_t frames, int rate)
 
 // 加载网易云菜单（虚拟歌曲列表）
 static void load_netease_menu(void) {
-    ne_count = 3;
-    for (int i = 0; i < 3; i++) {
+    ne_count = 4;
+    for (int i = 0; i < 4; i++) {
         ne_playlist[i].source = SRC_NETEASE;
         ne_playlist[i].artist[0] = '\0';
         ne_playlist[i].album[0] = '\0';
@@ -504,10 +504,11 @@ static void load_netease_menu(void) {
     }
     snprintf(ne_playlist[0].id, sizeof(ne_playlist[0].id), "__search__");
     snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "🔍 搜索");
-    snprintf(ne_playlist[1].id, sizeof(ne_playlist[1].id), "__daily__");
-    snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "每日推荐");
-    snprintf(ne_playlist[2].id, sizeof(ne_playlist[2].id), "__hot__");
-    snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "热歌榜");
+    snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "❤ 红心歌单");
+    snprintf(ne_playlist[2].id, sizeof(ne_playlist[2].id), "__daily__");
+    snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "每日推荐");
+    snprintf(ne_playlist[3].id, sizeof(ne_playlist[3].id), "__hot__");
+    snprintf(ne_playlist[3].title, sizeof(ne_playlist[3].title), "热歌榜");
     netease_submode = 0;
 }
 
@@ -550,6 +551,19 @@ static void load_netease_daily(void) {
     for (int i = 0; i < n; i++)
         ne_playlist[i] = results[i];
     netease_submode = 3;
+    netease_mode = 1;
+    song_sel = 0;
+}
+
+// 加载红心歌单
+static void load_netease_liked(void) {
+    Song results[MAX_SONGS];
+    int n = netease_liked_songs(results, MAX_SONGS);
+    if (n == 0) return;
+    ne_count = n;
+    for (int i = 0; i < n; i++)
+        ne_playlist[i] = results[i];
+    netease_submode = 4;
     netease_mode = 1;
     song_sel = 0;
 }
@@ -1163,8 +1177,10 @@ input:
    if (netease_search_buf[0])
     load_netease_search(netease_search_buf);
   } else if (song_sel == 1) {
-   load_netease_daily();
+   load_netease_liked();
   } else if (song_sel == 2) {
+   load_netease_daily();
+  } else if (song_sel == 3) {
    load_netease_playlist("3778678");  // 热歌榜
   }
   break;

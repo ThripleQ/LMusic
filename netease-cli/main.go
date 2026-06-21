@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-musicfox/netease-music/service"
@@ -18,8 +19,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Init cookie jar for login persistence
-	jar, _ := cookiejar.NewFileJar("cookie.txt", nil)
+	// Init cookie jar—使用固定路径，不受 CWD 影响
+	home, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(home, ".cache", "lmusic")
+	os.MkdirAll(cacheDir, 0755)
+	cookiePath := filepath.Join(cacheDir, "cookies.txt")
+	jar, _ := cookiejar.NewFileJar(cookiePath, nil)
 	util.SetGlobalCookieJar(jar)
 
 	cmd := os.Args[1]
@@ -88,7 +93,7 @@ func main() {
 		output(body)
 
 	case "login-status":
-		output([]byte("{\"status\":\"check cookie.txt\"}"))
+		output([]byte(fmt.Sprintf("{\"status\":\"check %s\"}", cookiePath)))
 
 	case "user-playlist":
 		if len(os.Args) < 3 {
@@ -96,6 +101,28 @@ func main() {
 		}
 		s := service.UserPlaylistService{Uid: os.Args[2]}
 		_, body := s.UserPlaylist()
+		output(body)
+
+	case "liked":
+		// 获取用户信息
+		accountSvc := service.UserAccountService{}
+		_, acctBody := accountSvc.AccountInfo()
+		var acctData map[string]interface{}
+		if err := json.Unmarshal(acctBody, &acctData); err != nil {
+			die(fmt.Sprintf("parse account failed: %v", err))
+		}
+		uid := int64(0)
+		if acct, ok := acctData["account"].(map[string]interface{}); ok {
+			if id, ok := acct["id"].(float64); ok {
+				uid = int64(id)
+			}
+		}
+		if uid == 0 {
+			die("failed to get uid, need login first")
+		}
+
+		likeSvc := service.LikeListService{UID: fmt.Sprintf("%d", uid)}
+		_, body := likeSvc.LikeList()
 		output(body)
 
 	case "recommend-songs":
@@ -130,6 +157,11 @@ func main() {
 		code, body, err := s.CheckQR()
 		if err != nil {
 			die(fmt.Sprintf("check failed: %v", err))
+		}
+		// login success → 再调一次 AccountInfo 让 cookie 保存到文件
+		if code == 803 {
+			accountSvc := service.UserAccountService{}
+			accountSvc.AccountInfo()
 		}
 		fmt.Printf("{\"code\":%.0f,\"body\":%s}\n", code, string(body))
 

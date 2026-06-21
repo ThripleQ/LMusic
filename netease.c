@@ -364,6 +364,38 @@ int netease_user_playlist(const char *uid, Song *results, int max) {
     return count;
 }
 
+int netease_liked_songs(Song *results, int max) {
+    char *json = run_cli("%s liked 2>/dev/null", NETEASE_CLI);
+    if (!json) return 0;
+    // liked 返回格式: {code, data:{songs:[...]}}
+    int count = 0;
+    const char *data = json_obj_start(json, "data");
+    if (data && *data == '{') {
+        const char *songs = json_obj_start(data, "songs");
+        if (songs && *songs == '[') {
+            const char *p = songs + 1;
+            while (*p && count < max) {
+                while (*p && *p != '{' && *p != ']') p++;
+                if (*p == ']') break;
+                const char *end = json_match(p);
+                if (end - p > 10 && parse_song(p, &results[count]) == 0)
+                    count++;
+                p = end;
+            }
+        }
+    }
+    // 如果 data.songs 没找到，尝试直接在顶层找 ids 并用 detail 解析
+    if (count == 0) {
+        const char *ids = json_obj_start(json, "ids");
+        if (ids && *ids == '[') {
+            // 只有 ID 没详情，可能需要额外请求
+            count = 0;
+        }
+    }
+    free(json);
+    return count;
+}
+
 int netease_login_cellphone(const char *phone, const char *password) {
     char *json = run_cli("%s login-cellphone %s %s", NETEASE_CLI, phone, password);
     if (!json) return -1;

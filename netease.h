@@ -27,6 +27,9 @@ int netease_user_playlist(const char *uid, Song *results, int max);
 
 // ── 登录 ──────────────────────────────────────────────────
 
+// 用户红心歌单（需要登录），返回结果数
+int netease_liked_songs(Song *results, int max);
+
 // 手机号 + 密码登录。返回 0 成功
 int netease_login_cellphone(const char *phone, const char *password);
 
