@@ -96,6 +96,10 @@ static char qr_unikey[128];            // 扫码 key
 static char qr_url[512];               // 二维码 URL
 static int qr_next_check = 0;          // 下次轮询时间
 
+// ── 列表滚动 ──
+static int dir_scroll = 0;            // 左面板滚动偏移
+static int song_scroll = 0;           // 右面板滚动偏移（在过滤后列表中的位置）
+
 // ── 目录浏览 ──
 static char dirs[64][512];
 static int dir_count = 0;
@@ -605,15 +609,15 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
 
  // 左面板列表
- int dir_top = 0; // 简单：不滚动
- for (int d = 0; d < dir_count && d < list_rows; d++) {
+ for (int d = dir_scroll; d < dir_count && d < dir_scroll + list_rows; d++) {
  const char *dname = strrchr(dirs[d], '/');
  dname = dname ? dname + 1 : dirs[d];
  char marker = ' ';
  if (d == pi) marker = '>';  // 当前播放歌曲所在目录
+ int drow = 2 + (d - dir_scroll);
  if (active_panel == 0 && d == selected) {
  wattron(win, COLOR_PAIR(2) | A_BOLD);
- mvwprintw(win, 2+d, 2, "%c %s", marker, dname);
+ mvwprintw(win, drow, 2, "%c %s", marker, dname);
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else {
  int has_songs = 0;
@@ -621,7 +625,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  if (strcmp(playlist[i].aux_label, dname) == 0) { has_songs = 1; break; }
  }
  wattron(win, has_songs ? A_NORMAL : A_DIM);
- mvwprintw(win, 2+d, 2, "%c %s", marker, dname);
+ mvwprintw(win, drow, 2, "%c %s", marker, dname);
  wattroff(win, has_songs ? A_NORMAL : A_DIM);
  }
  }
@@ -1125,6 +1129,7 @@ input:
  if (dir_count == 0) break;
  selected = (selected - 1 + dir_count) % dir_count;
  song_sel = 0;
+ if (selected < dir_scroll) dir_scroll = selected;
  } else {
  if (dir_count == 0) break;
  const char *dname = strrchr(dirs[selected], '/');
@@ -1136,6 +1141,7 @@ input:
   if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
  song_sel = (song_sel - 1 + cnt) % cnt;
+ if (song_sel < song_scroll) song_scroll = song_sel;
  }
  break;
  case KEY_DOWN:
@@ -1143,6 +1149,8 @@ input:
  if (dir_count == 0) break;
  selected = (selected + 1) % dir_count;
  song_sel = 0;
+ int lr = getmaxy(stdscr) - 4;
+ if (selected >= dir_scroll + lr) dir_scroll = selected - lr + 1;
  } else {
  if (dir_count == 0) break;
  const char *dname = strrchr(dirs[selected], '/');
@@ -1154,6 +1162,8 @@ input:
   if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
  song_sel = (song_sel + 1) % cnt;
+ int lr2 = getmaxy(stdscr) - 4;
+ if (song_sel >= song_scroll + lr2) song_scroll = song_sel - lr2 + 1;
  }
  break;
 
