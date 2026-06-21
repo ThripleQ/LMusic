@@ -1276,7 +1276,7 @@ int main(int argc, char *argv[]) {
  int selected = init_dir, running = 1, col_w;
 
  while (running) {
- if (sigint_caught) {
+ if (sigint_caught) { help_dismissed = 1;
  if (quitting) { running = 0; break; }
  quitting = 1;
  sigint_caught = 0;
