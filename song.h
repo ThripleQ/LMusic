@@ -12,6 +12,7 @@ typedef struct {
     char artist[128];
     char album[128];
     int  duration_sec;
+    int  fee;  // 0=free, 1=vip, 4=album, 8=paid
     char aux_label[64];  // 来源目录名 / 歌单名
 } Song;
 

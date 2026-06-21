@@ -753,8 +753,10 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  else
  strncpy(line, cur_list[i].title, sizeof(line)-1);
 
- char dur_str[16] = "";
- if (cur_list[i].duration_sec > 0)
+ char dur_str[32] = "";
+ if (cur_list[i].fee > 0)
+  snprintf(dur_str, sizeof(dur_str), "VIP %d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
+ else if (cur_list[i].duration_sec > 0)
  snprintf(dur_str, sizeof(dur_str), "%d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
 
  char marker = ' ';
