@@ -17,13 +17,20 @@
 
 ## 安装（仅 Linux）
 
-### 自动安装
+### 直接下载
+
+```bash
+curl -L https://github.com/ThripleQ/LMusic/releases/latest/download/lmusic -o lmusic
+chmod +x lmusic && sudo mv lmusic /usr/local/bin/
+```
+
+### 自动编译安装
 
 ```bash
 chmod +x install.sh && ./install.sh
 ```
 
-### 各发行版手动安装
+### 手动编译
 
 **Arch Linux:**
 ```bash
@@ -48,12 +55,6 @@ make && sudo make install
 ```bash
 sudo zypper install gcc ffmpeg-devel alsa-devel ncurses-devel
 make && sudo make install
-```
-
-### AUR (Arch Linux)
-
-```bash
-yay -S lmusic-git
 ```
 
 ## 使用
