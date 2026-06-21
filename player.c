@@ -1271,7 +1271,6 @@ int main(int argc, char *argv[]) {
 
  curs_set(0);
  timeout(30);
- set_escdelay(0);
 
  int selected = init_dir, running = 1, col_w;
 
