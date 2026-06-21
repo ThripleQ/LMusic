@@ -1037,22 +1037,8 @@ int main(int argc, char *argv[]) {
         if (atomic_load(&song_count) > 0)
             save_library();
     }
-    // 默认选中第一个有歌曲的目录
+    // 默认选中网易云首页
     int init_dir = 0;
-    for (int d = 0; d < dir_count; d++) {
-        const char *dname = strrchr(dirs[d], '/');
-        dname = dname ? dname + 1 : dirs[d];
-        int has_songs = 0;
-        for (int i = 0; i < atomic_load(&song_count); i++) {
-            if (strcmp(playlist[i].aux_label, dname) == 0) {
-                has_songs = 1;
-                break;
-            }
-        }
-        if (has_songs) { init_dir = d; break; }
-    }
-
-    // 添加网易云虚拟目录（置顶）
     netease_vdir_idx = 0;
     for (int i = dir_count; i > 0; i--)
         memcpy(dirs[i], dirs[i-1], sizeof(dirs[0]));
