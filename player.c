@@ -1664,7 +1664,6 @@ input:
 
  case KEY_MOUSE:
  {
-  quitting = 0;
   MEVENT ev;
   if (getmouse(&ev) != OK) break;
   int brows = getmaxy(stdscr);
@@ -1688,6 +1687,7 @@ input:
   // ── 左面板 ──
   if (ev.x < lw && ev.y >= brow && ev.y < brow + list_rows) {
    int dir_idx = ev.y - brow + dir_scroll;
+   quitting = 0;
    if (dir_idx >= 0 && dir_idx < dir_count) {
     selected = dir_idx; active_panel = 0;
     song_sel = 0; song_scroll = 0;
@@ -1702,6 +1702,7 @@ input:
 
   // ── 右面板：单击选中，再点相同项=Enter ──
   if (ev.x > lw && ev.y >= brow && ev.y < brows - 2) {
+   quitting = 0;
    active_panel = 1;
    const char *sdir = "";
    if (selected >= 0 && selected < dir_count) {
