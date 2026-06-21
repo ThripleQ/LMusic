@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <time.h>
 #include <alsa/asoundlib.h>
 #include <ncurses.h>
 #include <signal.h>
@@ -87,6 +88,12 @@ static int netease_submode = 0;        // 0=菜单 1=搜索结果 2=歌单 3=日
 static char netease_search_buf[256];   // 搜索关键词
 static Song ne_playlist[MAX_SONGS];    // 网易云独立歌曲列表
 static int ne_count = 0;               // 网易云歌曲数
+
+// ── 扫码登录状态机 ──
+static int qr_logging_in = 0;          // 1=登录中
+static char qr_unikey[128];            // 扫码 key
+static char qr_url[512];               // 二维码 URL
+static int qr_next_check = 0;          // 下次轮询时间
 
 // ── 目录浏览 ──
 static char dirs[64][512];
@@ -668,7 +675,17 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  format_time(cur_t, 16, cur_f, rate);
  format_time(tot_t, 16, total_f, rate);
 
- if (quitting) {
+ if (qr_logging_in) {
+  // 扫码登录——显示二维码和状态
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, info_row, 0, ' ', col_w);
+  mvwprintw(win, info_row, 2, "请用网易云 App 扫描二维码登录");
+  wattroff(win, COLOR_PAIR(3));
+  wattron(win, COLOR_PAIR(5));
+  mvwhline(win, bar_row, 0, ' ', col_w);
+  mvwprintw(win, bar_row, 2, "📱 %s  (按任意键取消)", qr_url);
+  wattroff(win, COLOR_PAIR(5));
+ } else if (quitting) {
   wattron(win, COLOR_PAIR(3));
   mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
   wattroff(win, COLOR_PAIR(3));
@@ -946,6 +963,17 @@ int main(int argc, char *argv[]) {
  refresh();
  goto input;
  }
+ // 网易云扫码登录轮询（网络检查）
+ if (qr_logging_in) {
+  int now = time(NULL);
+  if (now >= qr_next_check) {
+   int r = netease_qr_check(qr_unikey);
+   if (r == 1) { qr_logging_in = 0; }
+   else if (r == -1) { qr_logging_in = 0; }
+   else { qr_next_check = now + 2; }
+  }
+ }
+
  // 网易云目录切换：选中时自动加载菜单
  if (selected == netease_vdir_idx && !netease_mode) {
   load_netease_menu();
@@ -967,6 +995,7 @@ input:
  break;
  case ERR: break;   // 超时无按键
  default:
+ if (qr_logging_in) { qr_logging_in = 0; break; }
  if (quitting) quitting = 0;
  break;
 
@@ -1166,28 +1195,11 @@ input:
  break;
 
  case 'l': case 'L':  // 网易云扫码登录
- {
-  char url[512], unikey[128];
-  if (netease_qr_get_key(url, sizeof(url), unikey, sizeof(unikey)) == 0) {
-   // 终端渲染二维码
-   char cmd[1024];
-   snprintf(cmd, sizeof(cmd), "echo '%s' | qrencode -t ANSIUTF8 -m 1 -s 2", url);
-   endwin();
-   printf("\n请用网易云 App 扫描:\n\n");
-   system(cmd);
-   printf("\n等待扫码确认...\n");
-   for (int i = 0; i < 120; i++) {
-    usleep(500000);
-    int r = netease_qr_check(unikey);
-    if (r == 1) { printf("✅ 登录成功!\n"); fflush(stdout); break; }
-    if (r == -1) { printf("❌ 二维码已过期，请重试\n"); fflush(stdout); break; }
-   }
-   printf("按任意键返回...\n");
-   getchar();
-   refresh();
+  if (!qr_logging_in && netease_qr_get_key(qr_url, sizeof(qr_url), qr_unikey, sizeof(qr_unikey)) == 0) {
+   qr_logging_in = 1;
+   qr_next_check = 0;  // 立即开始轮询
   }
- }
- break;
+  break;
 
  case 'd': case 'D':
  if (active_panel == 1) {
