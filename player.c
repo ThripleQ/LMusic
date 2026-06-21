@@ -77,7 +77,7 @@ static atomic_int song_count = 0;
 static int dir_counts[64];
 static int active_panel = 0;
 static int quitting = 0;  // 退出确认标志
-static int play_error = 0;  // 播放失败提示
+static atomic_int play_error = 0;  // 播放失败提示
 static volatile sig_atomic_t sigint_caught = 0;
 
 static void handle_sigint(int sig) { sigint_caught = 1; }
@@ -293,14 +293,14 @@ static void *playback_thread(void *arg) {
 
  if (start_stream_at(g_state.pending_path, seek_to) != 0) {
  atomic_store(&g_state.state, STOPPED);
- play_error = 1;
+ atomic_store(&play_error, 1);
  continue;
  }
 
  size_t total_fr = (size_t)atomic_load(&g_state.total_frames);
-if (total_fr == 0) { atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
+if (total_fr == 0) { atomic_store(&g_state.state, STOPPED); atomic_store(&play_error, 1); continue; }
  if (snd_pcm_open(&pcm, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) < 0) {
-pcm = NULL; atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
+pcm = NULL; atomic_store(&g_state.state, STOPPED); atomic_store(&play_error, 1); continue; }
 
  snd_pcm_hw_params_t *hw;
  snd_pcm_hw_params_alloca(&hw);
@@ -312,8 +312,9 @@ pcm = NULL; atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
  snd_pcm_hw_params_set_rate_near(pcm, hw, &rate, 0);
  if (snd_pcm_hw_params(pcm, hw) < 0) {
  snd_pcm_close(pcm); pcm = NULL;
- atomic_store(&g_state.state, STOPPED); continue;
- play_error = 1;
+ atomic_store(&g_state.state, STOPPED);
+ atomic_store(&play_error, 1);
+ continue;
  }
 
  atomic_store(&g_state.state, PLAYING);
@@ -390,7 +391,7 @@ pcm = NULL; atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
  } else {
  snd_pcm_drop(pcm); snd_pcm_close(pcm); pcm = NULL;
  atomic_store(&g_state.state, STOPPED);
- play_error = 1;
+ atomic_store(&play_error, 1);
  continue;
  }
  }
@@ -943,7 +944,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " │ %s", extra);
   mvwaddstr(win, bar_row, 0, bar_line);
   wattroff(win, COLOR_PAIR(5));
- } else if (play_error) {
+ } else if (atomic_load(&play_error)) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   mvwprintw(win, info_row, 2, "⚠ 解码失败，可能是无权限或文件异常");
@@ -1279,7 +1280,7 @@ int main(int argc, char *argv[]) {
 
 input:
  int ch = getch();
- if (ch != ERR && ch != 'q' && ch != 'Q') { quitting = 0; play_error = 0; }
+ if (ch != ERR && ch != 'q' && ch != 'Q') { quitting = 0; atomic_store(&play_error, 0); }
  if (ch != ERR) help_dismissed = 1;
  switch (ch) {
  case 'q': case 'Q':
@@ -1409,7 +1410,7 @@ input:
   if (target < 0) break;
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
-   play_error = 1;
+   atomic_store(&play_error, 1);
    break;
   }
   strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
