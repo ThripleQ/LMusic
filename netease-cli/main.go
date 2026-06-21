@@ -19,13 +19,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Init cookie jar—使用固定路径，不受 CWD 影响
+	// Init cookie jar + UNM
 	home, _ := os.UserHomeDir()
 	cacheDir := filepath.Join(home, ".cache", "lmusic")
 	os.MkdirAll(cacheDir, 0755)
 	cookiePath := filepath.Join(cacheDir, "cookies.txt")
 	jar, _ := cookiejar.NewFileJar(cookiePath, nil)
 	util.SetGlobalCookieJar(jar)
+	// 配置 UNM（UnblockNeteaseMusic）自动解锁受限歌曲
+	util.ForceBestQuality = true
+	util.EnableLocalVip = true
+	util.ConfigInit()
 
 	cmd := os.Args[1]
 	switch cmd {
@@ -58,8 +62,10 @@ func main() {
 					if u, ok := item["url"].(string); ok {
 						v1Url = u
 					}
-					// 如果有 freeTrialInfo（受限），强制回退
-					if _, hasTrial := item["freeTrialInfo"]; hasTrial && item["freeTrialInfo"] != nil {
+					// V1 返回非 200 码或 freeTrialInfo（受限），强制回退
+					if itemCode, _ := item["code"].(float64); itemCode != 0 && itemCode != 200 {
+						v1Url = ""
+					} else if _, hasTrial := item["freeTrialInfo"]; hasTrial && item["freeTrialInfo"] != nil {
 						v1Url = ""
 					}
 				}
