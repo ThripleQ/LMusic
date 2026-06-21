@@ -1233,8 +1233,10 @@ input:
   if (song_sel == 0) {
    // 搜索
    echo(); nocbreak(); curs_set(1);
-   mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
-   mvwprintw(stdscr, getmaxy(stdscr)-1, 2, "搜索: ");
+   // 搜索框用 info_row（rows-2），不与进度条重叠
+   int sr = getmaxy(stdscr);
+   mvwhline(stdscr, sr - 2, 0, ' ', col_w);
+   mvwprintw(stdscr, sr - 2, 2, "搜索: ");
    wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
    noecho(); cbreak(); curs_set(0);
    if (netease_search_buf[0])
@@ -1262,7 +1264,7 @@ input:
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
    mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
-   mvwprintw(stdscr, getmaxy(stdscr)-1, 2, "⚠ 需要登录网易云，按 l 扫码登录");
+   mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "⚠ 需要登录网易云，按 l 扫码登录");
    wrefresh(stdscr);
    break;
   }
