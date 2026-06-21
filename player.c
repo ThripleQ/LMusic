@@ -1311,24 +1311,30 @@ input:
 
  // ── 网易云特殊处理 ──
  if (selected == netease_vdir_idx && netease_submode == 0) {
-  // 菜单模式
+  // 菜单模式 → 异步加载（start_loading 触发）
   if (song_sel == 0) {
    // 搜索
-   echo(); nocbreak(); curs_set(1);
-   // 搜索框用 info_row（rows-2），不与进度条重叠
+   timeout(-1); echo(); curs_set(1);
    int sr = getmaxy(stdscr);
    mvwhline(stdscr, sr - 2, 0, ' ', col_w);
    mvwprintw(stdscr, sr - 2, 2, "搜索: ");
    wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
-   noecho(); cbreak(); curs_set(0);
-   if (netease_search_buf[0])
-    load_netease_search(netease_search_buf);
+   noecho(); curs_set(0); timeout(30);
+   if (netease_search_buf[0]) {
+    netease_submode = 1;
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "netease-cli search %s 2>/dev/null", netease_search_buf);
+    start_loading(cmd, "\u250f 搜索中...");
+   }
   } else if (song_sel == 1) {
-   load_netease_liked();
+   netease_submode = 2;
+   start_loading("netease-cli liked 2>/dev/null", "\u2764 加载红心...");
   } else if (song_sel == 2) {
-   load_netease_daily();
+   netease_submode = 3;
+   start_loading("netease-cli recommend-songs 2>/dev/null", "\u2601 加载推荐...");
   } else if (song_sel == 3) {
-   load_netease_playlist("3778678");  // 热歌榜
+   netease_submode = 4;
+   start_loading("netease-cli playlist 3778678 2>/dev/null", "\u266a 加载热歌榜...");
   }
   break;
  }
