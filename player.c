@@ -878,6 +878,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (loading) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
+  wattroff(win, COLOR_PAIR(3));
   int bar_w = col_w - 4;
   if (bar_w < 4) bar_w = 4;
   int filled = (loading_filled * bar_w + 10) / 20;
@@ -888,10 +889,11 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(7));
    } else {
+    wattron(win, COLOR_PAIR(3));
     mvwaddstr(win, info_row, lx, "━");
+    wattroff(win, COLOR_PAIR(3));
    }
   }
-  wattroff(win, COLOR_PAIR(3));
  } else if (pi >= 0 && pi < cur_total) {
   // ── 信息行（白字蓝底，无状态图标）──
   wattron(win, COLOR_PAIR(3));
