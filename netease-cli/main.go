@@ -103,7 +103,7 @@ func main() {
 		_, body := s.UserPlaylist()
 		output(body)
 
-	case "liked":
+	case "liked": {
 		// 获取用户信息
 		accountSvc := service.UserAccountService{}
 		_, acctBody := accountSvc.AccountInfo()
@@ -121,10 +121,42 @@ func main() {
 			die("failed to get uid, need login first")
 		}
 
+		// 获取红心歌曲 ID 列表
 		likeSvc := service.LikeListService{UID: fmt.Sprintf("%d", uid)}
 		_, body := likeSvc.LikeList()
-		output(body)
-
+		var likeData map[string]interface{}
+		if err := json.Unmarshal(body, &likeData); err != nil {
+			die(fmt.Sprintf("parse liked failed: %v", err))
+		}
+		idsRaw, ok := likeData["ids"].([]interface{})
+		if !ok || len(idsRaw) == 0 {
+			die("no liked songs or parse failed")
+		}
+		// 拼成逗号分隔字符串
+		var idStrs []string
+		for _, id := range idsRaw {
+			if f, ok := id.(float64); ok {
+				idStrs = append(idStrs, fmt.Sprintf("%.0f", f))
+			}
+		}
+		if len(idStrs) == 0 {
+			die("no liked songs")
+		}
+		// 调 SongDetail 获取完整信息
+		detailSvc := service.SongDetailService{Ids: strings.Join(idStrs, ",")}
+		_, detailBody := detailSvc.SongDetail()
+		// 重组为与 search 兼容的格式 {code, result:{songs:[...]}}
+		var detailData map[string]interface{}
+		json.Unmarshal(detailBody, &detailData)
+		if songs, ok := detailData["songs"]; ok {
+			out := map[string]interface{}{"code": 200, "result": map[string]interface{}{"songs": songs}}
+			b, _ := json.Marshal(out)
+			fmt.Println(string(b))
+		} else {
+			fmt.Println(string(detailBody))
+		}
+	}
+	
 	case "recommend-songs":
 		s := service.RecommendSongsService{}
 		_, body := s.RecommendSongs()
