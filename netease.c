@@ -267,7 +267,7 @@ static int parse_song(const char *song_json, Song *s) {
     free(album);
 
     s->duration_sec = (int)(json_int(song_json, "dt") / 1000);
-    snprintf(s->aux_label, sizeof(s->aux_label), "网易云");
+    snprintf(s->aux_label, sizeof(s->aux_label), "首页");
     return 0;
 }
 
