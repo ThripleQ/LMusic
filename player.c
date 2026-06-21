@@ -635,7 +635,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  wattroff(win, COLOR_PAIR(6) | A_BOLD);
  } else {
  int has_songs = 0;
- for (int i = 0; i < cur_total; i++) {
+ int local_n = atomic_load(&song_count);
+ for (int i = 0; i < local_n; i++) {
  if (strcmp(playlist[i].aux_label, dname) == 0) { has_songs = 1; break; }
  }
  wattron(win, has_songs ? A_NORMAL : A_DIM);
