@@ -692,8 +692,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  else if (i == pi) marker = '>';
 
  int line_row = 2 + song_idx;
- int dur_w = dur_str[0] ? (int)strlen(dur_str) + 1 : 0;
- int max_w = col_w - (left_w + 2) - dur_w - 2; // 可用显示列
+ int dur_w = dur_str[0] ? (int)strlen(dur_str) + 2 : 0;
+ int max_w = col_w - (left_w + 2) - dur_w - 3;
  int line_w = display_width(line);
  int is_sel = (active_panel == 1 && song_idx + song_scroll == song_sel);
 
