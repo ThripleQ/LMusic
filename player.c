@@ -298,11 +298,9 @@ static void *playback_thread(void *arg) {
  }
 
  size_t total_fr = (size_t)atomic_load(&g_state.total_frames);
- if (total_fr == 0) { atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
-
+if (total_fr == 0) { atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
  if (snd_pcm_open(&pcm, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) < 0) {
- pcm = NULL; atomic_store(&g_state.state, STOPPED); continue;
- }
+pcm = NULL; atomic_store(&g_state.state, STOPPED); play_error = 1; continue; }
 
  snd_pcm_hw_params_t *hw;
  snd_pcm_hw_params_alloca(&hw);
@@ -315,6 +313,7 @@ static void *playback_thread(void *arg) {
  if (snd_pcm_hw_params(pcm, hw) < 0) {
  snd_pcm_close(pcm); pcm = NULL;
  atomic_store(&g_state.state, STOPPED); continue;
+ play_error = 1;
  }
 
  atomic_store(&g_state.state, PLAYING);
@@ -391,6 +390,7 @@ static void *playback_thread(void *arg) {
  } else {
  snd_pcm_drop(pcm); snd_pcm_close(pcm); pcm = NULL;
  atomic_store(&g_state.state, STOPPED);
+ play_error = 1;
  continue;
  }
  }
@@ -946,8 +946,9 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (play_error) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
-  mvwprintw(win, info_row, 2, "\u26a0 解码失败，可能是无权限或文件异常");
+  mvwprintw(win, info_row, 2, "⚠ 解码失败，可能是无权限或文件异常");
   wattroff(win, COLOR_PAIR(3));
+   wattroff(win, COLOR_PAIR(3));
  } else if (!help_dismissed) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
