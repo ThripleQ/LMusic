@@ -932,12 +932,13 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattroff(win, COLOR_PAIR(5));
  } else if (!help_dismissed) {
   wattron(win, COLOR_PAIR(3));
-  mvwhline(win, bar_row, 0, ' ', col_w);
+  mvwhline(win, info_row, 0, ' ', col_w);
   const char *hlp_loop = "";
   if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
   else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
-  mvwprintw(win, bar_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
+  mvwprintw(win, info_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
   wattroff(win, COLOR_PAIR(3));
+  mvwhline(win, bar_row, 0, ' ', col_w);
  } else {
   // 无播放时：显示当前选中目录/歌曲 + 静默进度条（与播放进度条格式一致）
   const char *sdname = strrchr(dirs[selected], '/');
