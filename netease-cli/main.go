@@ -234,38 +234,13 @@ func main() {
 		if err != nil {
 			die(fmt.Sprintf("check failed: %v", err))
 		}
-		// 登录成功 → 手动存 cookie（库的 CreateRequest 不写回 jar）
 		if code == 803 {
 			var resp map[string]interface{}
 			if err := json.Unmarshal(body, &resp); err == nil {
-				if cookieStr, ok := resp["cookie"].(string); ok && cookieStr != "" {
-					// 写 cookie 到固定路径
-					home, _ := os.UserHomeDir()
-					cp := filepath.Join(home, ".cache", "lmusic", "cookies.txt")
-					os.MkdirAll(filepath.Dir(cp), 0755)
-					// 追加到 cookie 文件（格式: domain	FALSE	path	FALSE	expire	name	value）
-					// 解析 cookie 字符串
-					parts := strings.Split(cookieStr, ";")
-					for _, part := range parts {
-						part = strings.TrimSpace(part)
-						kv := strings.SplitN(part, "=", 2)
-						if len(kv) == 2 {
-							n := kv[0]
-							// 只存 session cookie，跳过属性字段
-							if strings.EqualFold(n, "Path") || strings.EqualFold(n, "Domain") || strings.EqualFold(n, "Expires") || strings.EqualFold(n, "Max-Age") || strings.EqualFold(n, "Secure") || strings.EqualFold(n, "HttpOnly") || strings.EqualFold(n, "SameSite") {
-								continue
-							}
-							f, _ := os.OpenFile(cp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-							if f != nil {
-								fmt.Fprintf(f, "music.163.com\tFALSE\t/\tFALSE\t253402300799\t%s\t%s\n", n, kv[1])
-								f.Close()
-							}
-						}
-					}
+				if c, _ := resp["cookie"].(string); c != "" { saveNeteaseCookies(c) }
+				if d, ok := resp["data"].(map[string]interface{}); ok {
+					if c, _ := d["cookie"].(string); c != "" { saveNeteaseCookies(c) }
 				}
-				// 再调一次 AccountInfo 确保后续 jar 也能读到
-				acctSvc := service.UserAccountService{}
-				acctSvc.AccountInfo()
 			}
 		}
 		fmt.Printf("{\"code\":%.0f,\"body\":%s}\n", code, string(body))
@@ -290,4 +265,30 @@ func output(body []byte) {
 func die(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 	os.Exit(1)
+}
+
+func saveNeteaseCookies(cookieStr string) {
+	home, _ := os.UserHomeDir()
+	cp := filepath.Join(home, ".cache", "lmusic", "cookies.txt")
+	os.MkdirAll(filepath.Dir(cp), 0755)
+	parts := strings.Split(cookieStr, ";")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		n := kv[0]
+		if strings.EqualFold(n, "Path") || strings.EqualFold(n, "Domain") ||
+			strings.EqualFold(n, "Expires") || strings.EqualFold(n, "Max-Age") ||
+			strings.EqualFold(n, "Secure") || strings.EqualFold(n, "HttpOnly") ||
+			strings.EqualFold(n, "SameSite") {
+			continue
+		}
+		f, _ := os.OpenFile(cp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if f != nil {
+			fmt.Fprintf(f, "music.163.com\tFALSE\t/\tFALSE\t253402300799\t%s\t%s\n", n, kv[1])
+			f.Close()
+		}
+	}
 }
