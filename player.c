@@ -542,6 +542,7 @@ static void load_netease_menu(void) {
     }
     snprintf(ne_playlist[0].id, sizeof(ne_playlist[0].id), "__search__");
     snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "搜索");
+    snprintf(ne_playlist[1].id, sizeof(ne_playlist[1].id), "__liked__");
     snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "红心歌单");
     snprintf(ne_playlist[2].id, sizeof(ne_playlist[2].id), "__daily__");
     snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "每日推荐");
