@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-musicfox/netease-music/service"
 	"github.com/go-musicfox/netease-music/util"
+	"github.com/skip2/go-qrcode"
 	"github.com/telanflow/cookiejar"
 )
 
@@ -101,6 +102,16 @@ func main() {
 		s := service.RecommendSongsService{}
 		_, body := s.RecommendSongs()
 		output(body)
+
+	case "qr-render":
+		if len(os.Args) < 3 {
+			die("usage: netease-cli qr-render <url>")
+		}
+		qr, err := qrcode.New(os.Args[2], qrcode.Medium)
+		if err != nil {
+			die(fmt.Sprintf("qr error: %v", err))
+		}
+		fmt.Print(qr.ToSmallString(false))
 
 	case "qr-key":
 		s := service.LoginQRService{}

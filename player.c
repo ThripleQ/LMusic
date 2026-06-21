@@ -677,8 +677,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
  if (qr_logging_in) {
   // 扫码登录——ncurses 内渲染二维码
-  char cmd[1024];
-  snprintf(cmd, sizeof(cmd), "echo '%s' | qrencode -t ANSIUTF8 -m 1 -s 2 2>/dev/null", qr_url);
+  char cmd[1280];
+  snprintf(cmd, sizeof(cmd), "netease-cli qr-render '%s' 2>/dev/null", qr_url);
   FILE *fp = popen(cmd, "r");
   if (fp) {
    // 清屏并居中显示
