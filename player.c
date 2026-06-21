@@ -938,7 +938,22 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
   mvwprintw(win, info_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
   wattroff(win, COLOR_PAIR(3));
+  // 进度条常驻：即使帮助未消除也显示
+  const char *loop_str = "      ";
+  if (atomic_load(&loop_mode) == 1) loop_str = "[单曲]";
+  else if (atomic_load(&loop_mode) == 2) loop_str = "[列表]";
+  char extra[64];
+  snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", loop_str, rate / 1000, atomic_load(&g_state.bits_per_sample));
+  wattron(win, COLOR_PAIR(5));
   mvwhline(win, bar_row, 0, ' ', col_w);
+  char bar_line[512];
+  int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
+  int bar_w2 = col_w - bl - 20 - 3;
+  for (int i = 0; i < bar_w2 && bl < (int)sizeof(bar_line)-4; i++)
+   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " ");
+  bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " \u2502 %s", extra);
+  mvwaddstr(win, bar_row, 0, bar_line);
+  wattroff(win, COLOR_PAIR(5));
  } else {
   // 无播放时：显示当前选中目录/歌曲 + 静默进度条（与播放进度条格式一致）
   const char *sdname = strrchr(dirs[selected], '/');
