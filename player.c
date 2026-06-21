@@ -1717,41 +1717,43 @@ input:
    }
    if (clicked < 0) break;
 
-   if (clicked == song_sel) {
-    // 已选中 → 相当于按 Enter
-    int cnt2 = 0, target = -1;
-    for (int j = 0; j < total; j++) {
-     if (strcmp(slist[j].aux_label, sdir) != 0) continue;
-     if (cnt2 == song_sel) { target = j; break; }
-     cnt2++;
-    }
-    if (target >= 0) {
-     if (netease_mode && slist[target].id[0] == '_' && slist[target].id[1] == '_') {
-      int sel = song_sel;
-      if (sel == 0) {}
-      else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "红心"); }
-      else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "推荐"); }
-      else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "热歌"); }
-      else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "歌单"); }
-     } else {
-      if (netease_mode) {
-       char u2[512];
-       if (netease_song_url(slist[target].id, u2, sizeof(u2)) == 0) {
-        strncpy(g_state.pending_path, u2, sizeof(g_state.pending_path)-1);
-        atomic_store(&play_index, target);
-        atomic_store(&g_state.seek_frame, -1);
-        atomic_store(&g_state.command, 1);
-       }
-      } else {
-       strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
+   // 找到目标全局索引
+   int cnt2 = 0, target = -1;
+   for (int j = 0; j < total; j++) {
+    if (strcmp(slist[j].aux_label, sdir) != 0) continue;
+    if (cnt2 == clicked) { target = j; break; }
+    cnt2++;
+   }
+   if (target >= 0) {
+    if (netease_mode && slist[target].id[0] == '_' && slist[target].id[1] == '_') {
+     // 菜单项 → 一点就触发
+     song_sel = clicked;
+     int sel = clicked;
+     if (sel == 0) {}
+     else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "红心"); }
+     else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "推荐"); }
+     else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "热歌"); }
+     else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "歌单"); }
+    } else if (clicked == song_sel) {
+     // 歌曲已选中 → 播放
+     if (netease_mode) {
+      char u2[512];
+      if (netease_song_url(slist[target].id, u2, sizeof(u2)) == 0) {
+       strncpy(g_state.pending_path, u2, sizeof(g_state.pending_path)-1);
        atomic_store(&play_index, target);
        atomic_store(&g_state.seek_frame, -1);
        atomic_store(&g_state.command, 1);
       }
+     } else {
+      strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
+      atomic_store(&play_index, target);
+      atomic_store(&g_state.seek_frame, -1);
+      atomic_store(&g_state.command, 1);
      }
+    } else {
+     // 歌曲未选中 → 选中
+     song_sel = clicked;
     }
-   } else {
-    song_sel = clicked; // 选中
    }
   }
   break;
