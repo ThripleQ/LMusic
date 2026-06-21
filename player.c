@@ -867,21 +867,23 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    }
    pclose(fp);
   }
-  wattron(win, COLOR_PAIR(3));
-  mvwprintw(win, info_row, 2, "📱 请用网易云 App 扫码  (任意键取消)");
-  wattroff(win, COLOR_PAIR(3));
  } else if (quitting) {
+  mvwhline(win, info_row, 0, ' ', col_w);
   wattron(win, COLOR_PAIR(3));
-  mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
+  mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
   wattroff(win, COLOR_PAIR(3));
  } else if (loading) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   int lx = 2;
   mvwprintw(win, info_row, lx, "%s", loading_msg);
-  lx += (int)strlen(loading_msg) + 1;
-  for (int i = 0; i < 20; i++, lx++) {
-   if (i < loading_filled) {
+  lx += (int)strlen(loading_msg) + 2;
+  // 进度条宽度自适应终端
+  int bar_w = col_w - lx - 2;
+  if (bar_w < 4) bar_w = 4;
+  int filled = (loading_filled * bar_w + 10) / 20;
+  for (int i = 0; i < bar_w; i++, lx++) {
+   if (i < filled) {
     wattron(win, COLOR_PAIR(7));
     mvwaddstr(win, info_row, lx, "\u2501");
     wattroff(win, COLOR_PAIR(7));
@@ -1180,6 +1182,7 @@ int main(int argc, char *argv[]) {
  keypad(stdscr, TRUE);
  curs_set(0);
  timeout(30);
+ set_escdelay(0);
 
  int selected = init_dir, running = 1, col_w;
 
@@ -1238,6 +1241,7 @@ int main(int argc, char *argv[]) {
 
 input:
  int ch = getch();
+ if (ch != ERR && ch != 'q' && ch != 'Q') quitting = 0;
  if (ch != ERR) help_dismissed = 1;
  switch (ch) {
  case 'q': case 'Q':
