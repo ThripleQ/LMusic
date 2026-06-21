@@ -375,6 +375,32 @@ int netease_login_cellphone(const char *phone, const char *password) {
     return (code == 200) ? 0 : -1;
 }
 
+int netease_qr_get_key(char *url, int url_len, char *unikey, int key_len) {
+    char *json = run_cli("%s qr-key", NETEASE_CLI);
+    if (!json) return -1;
+    char *u = json_str(json, "url");
+    char *k = json_str(json, "unikey");
+    if (u && k) {
+        snprintf(url, url_len, "%s", u);
+        snprintf(unikey, key_len, "%s", k);
+        free(u); free(k); free(json);
+        return 0;
+    }
+    free(u); free(k); free(json);
+    return -1;
+}
+
+int netease_qr_check(const char *unikey) {
+    char *json = run_cli("%s qr-check %s", NETEASE_CLI, unikey);
+    if (!json) return -1;
+    long long code = json_int(json, "code");
+    free(json);
+    // 803 = 授权成功, 800 = 二维码过期, 801 = 等待扫码, 802 = 等待确认
+    if (code == 803) return 1;
+    if (code == 800) return -1;
+    return 0;
+}
+
 int netease_login_status(void) {
     // 简单检查 cookie.txt 是否存在
     FILE *f = fopen("netease-cli/cookie.txt", "r");

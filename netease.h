@@ -27,8 +27,14 @@ int netease_user_playlist(const char *uid, Song *results, int max);
 
 // ── 登录 ──────────────────────────────────────────────────
 
-// 手机号 + 密码登录。返回 0 成功，cookie 存入文件
+// 手机号 + 密码登录。返回 0 成功
 int netease_login_cellphone(const char *phone, const char *password);
+
+// 扫码登录：step1 获取 key + URL，返回 0 成功
+int netease_qr_get_key(char *url, int url_len, char *unikey, int key_len);
+
+// 扫码登录：step2 轮询确认，返回 1=成功 0=等待 -1=失败
+int netease_qr_check(const char *unikey);
 
 // 检查登录状态
 int netease_login_status(void);
