@@ -1266,8 +1266,7 @@ int main(int argc, char *argv[]) {
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
- mousemask(BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED, NULL);
- mouseinterval(400);
+ mousemask(BUTTON1_PRESSED, NULL);
 
  curs_set(0);
  timeout(30);
@@ -1699,8 +1698,14 @@ input:
     matched++;
     if (matched == song_scroll + (ev.y - brow) + 1) {
      song_sel = matched - 1;
-     // 双击：播放选中歌曲
-     if (ev.bstate & BUTTON1_DOUBLE_CLICKED) {
+     // 双击检测：400ms 内同位置第二次按下
+     static time_t last_mclick = 0;
+     static int last_mrow = -1;
+     int now_ms = (int)(time(NULL) * 1000);
+     int is_dbl = (now_ms - last_mclick < 400 && last_mrow == ev.y);
+     last_mclick = now_ms;
+     last_mrow = ev.y;
+     if (is_dbl) {
       int cnt2 = 0, target2 = -1;
       Song *songs2 = netease_mode ? ne_playlist : playlist;
       int total2 = netease_mode ? ne_count : atomic_load(&song_count);
