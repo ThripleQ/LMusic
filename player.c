@@ -513,7 +513,7 @@ static int format_time(char *buf, size_t sz, snd_pcm_uframes_t frames, int rate)
 // 加载网易云菜单（虚拟歌曲列表）
 static void load_netease_menu(void) {
     ne_count = 5;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         ne_playlist[i].source = SRC_NETEASE;
         ne_playlist[i].artist[0] = '\0';
         ne_playlist[i].album[0] = '\0';
