@@ -504,7 +504,7 @@ static void load_netease_menu(void) {
         ne_playlist[i].artist[0] = '\0';
         ne_playlist[i].album[0] = '\0';
         ne_playlist[i].duration_sec = 0;
-        snprintf(ne_playlist[i].aux_label, sizeof(ne_playlist[i].aux_label), "首页");
+        snprintf(ne_playlist[i].aux_label, sizeof(ne_playlist[i].aux_label), "网易云");
     }
     snprintf(ne_playlist[0].id, sizeof(ne_playlist[0].id), "__search__");
     snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "🔍 搜索");
@@ -615,15 +615,15 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  char marker = ' ';
  if (d == pi) marker = '>';  // 当前播放歌曲所在目录
  int drow = 2 + (d - dir_scroll);
- if (active_panel == 0 && d == selected) {
- wattron(win, COLOR_PAIR(2) | A_BOLD);
- mvwprintw(win, drow, 2, "%c %s", marker, dname);
- wattroff(win, COLOR_PAIR(2) | A_BOLD);
- } else if (d == netease_vdir_idx) {
- // 首页：亮红色加粗
+ if (d == netease_vdir_idx) {
+ // 网易云：永远亮红色（选中不变色）
  wattron(win, COLOR_PAIR(6) | A_BOLD);
  mvwprintw(win, drow, 2, "%c %s", marker, dname);
  wattroff(win, COLOR_PAIR(6) | A_BOLD);
+ } else if (active_panel == 0 && d == selected) {
+ wattron(win, COLOR_PAIR(2) | A_BOLD);
+ mvwprintw(win, drow, 2, "%c %s", marker, dname);
+ wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else {
  int has_songs = 0;
  for (int i = 0; i < cur_total; i++) {
@@ -1042,7 +1042,7 @@ int main(int argc, char *argv[]) {
     netease_vdir_idx = 0;
     for (int i = dir_count; i > 0; i--)
         memcpy(dirs[i], dirs[i-1], sizeof(dirs[0]));
-    strncpy(dirs[0], "首页", 511);
+    strncpy(dirs[0], "网易云", 511);
     dir_count++;
 
     if (atomic_load(&song_count) == 0) {
@@ -1201,7 +1201,7 @@ input:
  if (selected == netease_vdir_idx && netease_submode > 0) {
   int cnt = 0, target = -1;
   for (int i = 0; i < ne_count; i++) {
-   if (strcmp(ne_playlist[i].aux_label, "首页") == 0) {
+   if (strcmp(ne_playlist[i].aux_label, "网易云") == 0) {
     if (cnt == song_sel) { target = i; break; }
     cnt++;
    }
