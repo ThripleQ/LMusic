@@ -880,10 +880,40 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   mvwprintw(win, bar_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
   wattroff(win, COLOR_PAIR(3));
  } else {
-  // 帮助已消失，底部栏清空
+  // 无播放时：显示当前选中目录/歌曲 + 静默进度条
+  const char *sdname = strrchr(dirs[selected], '/');
+  sdname = sdname ? sdname + 1 : dirs[selected];
+  Song *slist = netease_mode ? ne_playlist : playlist;
+  int stotal = netease_mode ? ne_count : atomic_load(&song_count);
+  int scnt = 0, seltarget = -1;
+  for (int t = 0; t < stotal; t++) {
+   if (strcmp(slist[t].aux_label, sdname) == 0) {
+    if (scnt == song_sel) { seltarget = t; break; }
+    scnt++;
+   }
+  }
   wattron(win, COLOR_PAIR(3));
-  mvwhline(win, bar_row, 0, ' ', col_w);
+  mvwhline(win, info_row, 0, ' ', col_w);
+  mvwprintw(win, info_row, 2, "%s", sdname);
+  mvwaddstr(win, info_row, left_w, "│");
+  if (seltarget >= 0) {
+   if (slist[seltarget].artist[0])
+    mvwprintw(win, info_row, left_w + 2, "%s - %s", slist[seltarget].artist, slist[seltarget].title);
+   else
+    mvwprintw(win, info_row, left_w + 2, "%s", slist[seltarget].title);
+  }
   wattroff(win, COLOR_PAIR(3));
+  // 静默进度条
+  wattron(win, COLOR_PAIR(5));
+  mvwhline(win, bar_row, 0, ' ', col_w);
+  char bar_line[512];
+  int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
+  int bar_w = col_w - bl - 20 - 3;
+  for (int i = 0; i < bar_w && bl < (int)sizeof(bar_line)-4; i++)
+   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, "-");
+  bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " \u2502 ------ ------");
+  mvwaddstr(win, bar_row, 0, bar_line);
+  wattroff(win, COLOR_PAIR(5));
  }
 
 
