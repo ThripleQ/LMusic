@@ -305,9 +305,13 @@ int stream_decode(StreamDecoder *sd, uint8_t **buf, size_t *cap, long long *tota
             // 需要更多输入数据
             int r = av_read_frame(p->fmt_ctx, p->pkt);
             if (r < 0) {
-                // 文件读完，排空解码器
-                avcodec_send_packet(p->codec_ctx, NULL);
-                continue;
+                if (r == AVERROR_EOF) {
+                    // 真正读完
+                    avcodec_send_packet(p->codec_ctx, NULL);
+                    continue;
+                }
+                // 网络断流 / IO 错误 → 返回 -1 而非假装读完
+                return -1;
             }
             if (p->pkt->stream_index == p->stream_idx)
                 avcodec_send_packet(p->codec_ctx, p->pkt);
