@@ -18,6 +18,7 @@
 #include <locale.h>
 
 #include "decoder.h"
+#include "song.h"
 
 //#define DEBUG
 #ifdef DEBUG
@@ -65,20 +66,7 @@ static long long g_stream_local_total = 0;
 static void noop_alsa_err(const char *f, int l, const char *fn, int e, const char *fmt, ...) {}
 
 
-// ── Song 抽象 ─────────────────────────────────────────────
-typedef enum { SRC_LOCAL, SRC_NETEASE } SongSource;
-
-typedef struct {
- SongSource source;
- char id[512];
- char title[256];
- char artist[128];
- char album[128];
- int duration_sec;
- char aux_label[64];  // 来源目录名
-} Song;
-
-#define MAX_SONGS 1024
+// ── 播放器状态 ──────────────────────────────────────────────
 static Song playlist[MAX_SONGS];
 static atomic_int song_count = 0;
 static int dir_counts[64];
@@ -612,8 +600,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   // ── 信息行（白字蓝底，无状态图标）──
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
-  char info[384];
-  int il = 0;
   // 左：文件夹名  右：歌曲名
   mvwprintw(win, info_row, 2, "%s", playlist[pi].aux_label);
   mvwaddstr(win, info_row, left_w, "│");
