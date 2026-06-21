@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <wchar.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <alsa/asoundlib.h>
@@ -1536,6 +1537,10 @@ input:
  break;
 
  case 'r': case 'R':
+  if (atomic_load(&loop_mode) == 0) atomic_store(&loop_mode, 1);
+  else if (atomic_load(&loop_mode) == 1) atomic_store(&loop_mode, 2);
+  else atomic_store(&loop_mode, 0);
+  break;
 
  case 'l': case 'L':
   if (!qr_logging_in) {

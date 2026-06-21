@@ -49,8 +49,3 @@ int netease_parse_search(const char *json, Song *results, int max);
 int netease_parse_daily(const char *json, Song *results, int max);
 int netease_parse_playlist(const char *json, Song *results, int max);
 int netease_parse_playlists(const char *json, Song *results, int max);
-// 从原始 JSON 解析搜索/歌单结果（用于异步加载）
-int netease_parse_search(const char *json, Song *results, int max);
-int netease_parse_daily(const char *json, Song *results, int max);
-int netease_parse_playlist(const char *json, Song *results, int max);
-int netease_parse_playlists(const char *json, Song *results, int max);
