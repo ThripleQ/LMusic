@@ -239,6 +239,7 @@ int stream_open(StreamDecoder *sd, const char *path, AudioInfo *info) {
     sd->priv = p;
 
     if (avformat_open_input(&p->fmt_ctx, path, NULL, NULL) < 0) goto fail;
+    p->fmt_ctx->max_analyze_duration = 30 * AV_TIME_BASE;
     if (avformat_find_stream_info(p->fmt_ctx, NULL) < 0) goto fail;
 
     const AVCodec *codec = NULL;

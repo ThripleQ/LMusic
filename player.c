@@ -39,6 +39,7 @@ typedef struct {
  atomic_llong total_frames;
  atomic_llong frame_offset;
  atomic_llong total_duration_frames;
+ atomic_llong peak_total_frames;  // 跨 seek 稳定的最大已解码帧数
 
  char cur_song[256];
  atomic_int sample_rate;
@@ -59,7 +60,6 @@ static pthread_mutex_t g_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 static StreamDecoder *g_stream_dec = NULL;
 static bool g_decode_done = false;
 static long long g_stream_local_total = 0;
-static int tail_stall = 0;  // ALSA tail-drain timeout counter
 
 // 静默 ALSA 运行时错误
 static void noop_alsa_err(const char *f, int l, const char *fn, int e, const char *fmt, ...) {}
@@ -207,7 +207,17 @@ static int start_stream_at(const char *path, long long start_frame) {
  atomic_store(&g_state.total_duration_frames, info.total_samples > 0
  ? (long long)info.total_samples : 0LL);
  atomic_store(&g_state.frame_offset, start_frame);
- atomic_store(&g_state.total_frames, start_frame + total_fr);
+ // total_frames 只增不减：防止 seek 时变小导致总时长跳变
+ long long new_total = start_frame + total_fr;
+ long long old_total = atomic_load(&g_state.total_frames);
+ if (new_total > old_total)
+ atomic_store(&g_state.total_frames, new_total);
+ // peak_total_frames：新歌归零，跨 seek 只增不减，UI 用
+ if (start_frame == 0)
+ atomic_store(&g_state.peak_total_frames, 0LL);
+ long long peak = atomic_load(&g_state.peak_total_frames);
+ if (new_total > peak)
+ atomic_store(&g_state.peak_total_frames, new_total);
  atomic_store(&g_state.cur_frame, 0LL);
  atomic_store(&g_state.playback_frame, 0LL);
  atomic_store(&g_state.sample_rate, (int)info.sample_rate);
@@ -239,7 +249,6 @@ static void *playback_thread(void *arg) {
 
  // ── 开始播放 ──
  if (cmd == 1 || cmd == 5 || cmd == 6) {
- tail_stall = 0;
  if (pcm) { snd_pcm_drop(pcm); snd_pcm_close(pcm); pcm = NULL; }
 
  long long seek_to = atomic_exchange(&g_state.seek_frame, -1);
@@ -381,23 +390,17 @@ static void *playback_thread(void *arg) {
  continue;
  }
 
- // ── ② 解码完成且数据全写完 → 等待硬件排空 ──
- DBG("branch2: entering tail-wait");
+ // ── ② 解码完成且数据全写完 → 阻塞排空 ──
  if (g_decode_done && cf >= g_stream_local_total) {
- snd_pcm_sframes_t rem = 0;
- if (snd_pcm_delay(pcm, &rem) == 0) {
- if (rem == 0 || (++tail_stall > 100 && rem < 2000) || tail_stall > 500) {
- tail_stall = 0;
- DBG("branch2a: delay=%ld → cleanup (stall=%d)", rem, tail_stall);
- // ★ 真正结束：拉满进度，清理，切歌
- long long total_dur = atomic_load(&g_state.total_duration_frames);
- if (total_dur == 0) total_dur = total_fr;
- if (total_dur > frame_off)
- atomic_store(&g_state.playback_frame, total_dur - frame_off);
- else
- atomic_store(&g_state.playback_frame, cf);
+ // 阻塞排空：唯一可靠的方式，等硬件播完所有数据
+ snd_pcm_drain(pcm);
 
- snd_pcm_drop(pcm);
+ // 用实际解码总帧数设置最终进度（不依赖容器 metadata）
+ long long final_relative = total_fr - frame_off;
+ if (final_relative < 0) final_relative = 0;
+ atomic_store(&g_state.playback_frame, final_relative);
+
+ // 清理
  snd_pcm_close(pcm); pcm = NULL;
  if (g_stream_dec) { stream_close(g_stream_dec); free(g_stream_dec); g_stream_dec = NULL; }
  g_decode_done = false;
@@ -405,6 +408,7 @@ static void *playback_thread(void *arg) {
  atomic_store(&g_state.frame_offset, 0LL);
  atomic_store(&g_state.total_duration_frames, 0LL);
 
+ // 循环模式处理
  if (atomic_load(&song_count) > 0 && atomic_load(&loop_mode) > 0) {
  atomic_store(&g_state.state, STOPPED);
  int next = (atomic_load(&loop_mode) == 2)
@@ -419,49 +423,13 @@ static void *playback_thread(void *arg) {
  continue;
  }
  }
- atomic_store(&g_state.state, STOPPED);
- continue;
- } else {
- // 硬件还有数据，更新进度并等待
- DBG("branch2b: delay=%ld waiting (stall=%d)", rem, tail_stall);
- long long real = cf - rem;
- long long old = atomic_load(&g_state.playback_frame);
- if (real > old)
- atomic_store(&g_state.playback_frame, real);
- usleep(5000);
- continue;
- }
- } else {
- DBG("branch2c: delay FAILED, force close");
- // delay 失败，强制结束
- long long total_dur = atomic_load(&g_state.total_duration_frames);
- if (total_dur == 0) total_dur = total_fr;
- atomic_store(&g_state.playback_frame, total_dur - frame_off);
- snd_pcm_drop(pcm);
- snd_pcm_close(pcm); pcm = NULL;
- if (g_stream_dec) { stream_close(g_stream_dec); free(g_stream_dec); g_stream_dec = NULL; }
- g_decode_done = false;
- g_stream_local_total = 0;
- atomic_store(&g_state.frame_offset, 0LL);
- atomic_store(&g_state.total_duration_frames, 0LL);
 
- if (atomic_load(&song_count) > 0 && atomic_load(&loop_mode) > 0) {
+ // 非循环模式：停止并重置进度
  atomic_store(&g_state.state, STOPPED);
- int next = (atomic_load(&loop_mode) == 2)
- ? (atomic_load(&play_index) + 1) % atomic_load(&song_count)
- : atomic_load(&play_index);
- if (next >= 0) {
- atomic_store(&play_index, next);
- strncpy(g_state.pending_path, playlist[next].id,
- sizeof(g_state.pending_path)-1);
- atomic_store(&g_state.seek_frame, -1);
- atomic_store(&g_state.command, 1);
+ atomic_store(&g_state.playback_frame, 0LL);
+ atomic_store(&g_state.cur_frame, 0LL);
+ atomic_store(&g_state.total_frames, 0LL);
  continue;
- }
- }
- atomic_store(&g_state.state, STOPPED);
- continue;
- }
  }
 
  // ── ③ 正常播放（解码未完成）──
@@ -511,25 +479,29 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  int pi = atomic_load(&play_index);
  int song_n = atomic_load(&song_count);
 
- // ── 标题栏（合并目录/目录名）──
- wattron(win, COLOR_PAIR(1));
- mvwhline(win, 0, 0, ' ' , col_w);
- char title_line[256];
- snprintf(title_line, sizeof(title_line), "♪ 目录 |");
- if (selected >= 0 && selected < dir_count) {
- const char *dname = strrchr(dirs[selected], '/');
- dname = dname ? dname + 1 : dirs[selected];
- strncat(title_line, dname, sizeof(title_line)-strlen(title_line)-1);
- }
- strncat(title_line, "  |  LMusic", sizeof(title_line)-strlen(title_line)-1);
- mvwprintw(win, 0, 2, "%-*s", col_w-4, title_line);
- wattroff(win, COLOR_PAIR(1));
-
- // ── 左面板：目录列表 ── // ── 左面板：目录列表 ──
+ // ── 尺寸计算 ──
  int rows = getmaxy(win);
  int left_w = 20; if (left_w > col_w/3) left_w = col_w/3;
  int right_w = col_w - left_w - 1;
- int list_rows = rows - 5;
+ int list_rows = rows - 4;
+
+ // ── 标题栏 ──
+ wattron(win, COLOR_PAIR(1));
+ mvwhline(win, 0, 0, ' ', col_w);
+ mvwprintw(win, 0, 2, "Browser");
+ mvwaddstr(win, 0, left_w, "│");
+ if (selected >= 0 && selected < dir_count) {
+  const char *dname = strrchr(dirs[selected], '/');
+  dname = dname ? dname + 1 : dirs[selected];
+  mvwprintw(win, 0, left_w + 2, "%s", dname);
+ }
+ // 循环模式（固定 6 列宽，"LMusic" 左边）
+ const char *title_loop = "      ";
+ if (atomic_load(&loop_mode) == 1) title_loop = "[单曲]";
+ else if (atomic_load(&loop_mode) == 2) title_loop = "[列表]";
+ mvwprintw(win, 0, col_w - 15, "%s", title_loop);
+ mvwprintw(win, 0, col_w - 8, "LMusic");
+ wattroff(win, COLOR_PAIR(1));
 
 
 
@@ -556,8 +528,10 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  }
 
  // ── 分隔线 ──
- for (int r = 1; r < rows - 4; r++)
- mvwaddch(win, r, left_w, '|');
+ wattron(win, COLOR_PAIR(4));
+ for (int r = 1; r < rows - 2; r++)
+  mvwaddstr(win, r, left_w, "│");
+ wattroff(win, COLOR_PAIR(4));
 
  // ── 右面板：歌曲列表 ──
  // 右面板：始终显示选中目录的歌曲
@@ -613,58 +587,76 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  }
  }
 
- // ── 进度条 ──
- mvwhline(win, rows-4, 0, '-', col_w);
- int progress_row = rows - 3;
+ // ── cmus 式双行底部 ──
+ int info_row = rows - 2;
+ int bar_row  = rows - 1;
  long long frame_off = atomic_load(&g_state.frame_offset);
  snd_pcm_uframes_t cur_f = (snd_pcm_uframes_t)(frame_off + atomic_load(&g_state.playback_frame));
- long long total_dur = atomic_load(&g_state.total_duration_frames);
- snd_pcm_uframes_t total_f = (snd_pcm_uframes_t)(total_dur > 0 ? total_dur : atomic_load(&g_state.total_frames));
+ long long meta_dur = atomic_load(&g_state.total_duration_frames);
+ long long peak_fr = atomic_load(&g_state.peak_total_frames);
+ long long decoded_fr = atomic_load(&g_state.total_frames);
+ long long best = meta_dur;
+ if (best == 0) best = peak_fr;
+ if (best == 0) best = decoded_fr;
+ snd_pcm_uframes_t total_f = (snd_pcm_uframes_t)best;
  int rate = atomic_load(&g_state.sample_rate);
  char cur_t[16], tot_t[16];
  format_time(cur_t, 16, cur_f, rate);
  format_time(tot_t, 16, total_f, rate);
- int bar_w = col_w - 22;
- if (bar_w > 0) {
- int filled = total_f > 0 ? (int)(cur_f * bar_w / total_f) : 0;
- if (filled > bar_w) filled = bar_w;
- mvwprintw(win, progress_row, 2, "%s", cur_t);
- mvwprintw(win, progress_row, 2+8, " ");
- // 进度条：已播放用 █（实心块），未播放用 ░（浅色点）
- char progress[512];
- int pw = 0;
- for (int i = 0; i < bar_w && pw < (int)sizeof(progress)-4; i++)
- pw += snprintf(progress + pw, sizeof(progress) - pw,
- i < filled ? "\xe2\x96\x88" : "\xe2\x96\x91");
- mvwprintw(win, progress_row, 2+9, "%s", progress);
- mvwprintw(win, progress_row, 2+10+bar_w, " %s", tot_t);
- }
 
- // ── 底部状态栏 ──
- int bot_row = rows - 1;
- char song_name[256] = "(无)";
- if (pi >= 0 && pi < song_n) strncpy(song_name, playlist[pi].title, sizeof(song_name)-1);
- const char *loop_str = "";
- if (atomic_load(&loop_mode) == 1) loop_str = " [单曲]";
- else if (atomic_load(&loop_mode) == 2) loop_str = " [列表]";
- char artist_str[128] = "";
- if (pi >= 0 && pi < song_n && playlist[pi].artist[0])
- snprintf(artist_str, sizeof(artist_str), " %s -", playlist[pi].artist);
-
- wattron(win, COLOR_PAIR(3));
- mvwhline(win, bot_row, 0, ' ', col_w);
  if (quitting) {
- mvwprintw(win, bot_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
- } else if (song_name[0] && strcmp(song_name, "(无)") != 0) {
- mvwprintw(win, bot_row, 2, "%s%s %s%s", state==PLAYING?"▶":state==PAUSED?"⏸":"⏹", artist_str, song_name, loop_str);
- mvwprintw(win, bot_row, col_w-30, "%dHz %dch", rate, atomic_load(&g_state.num_channels));
+  wattron(win, COLOR_PAIR(3));
+  mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
+  wattroff(win, COLOR_PAIR(3));
+ } else if (pi >= 0 && pi < song_n) {
+  // ── 信息行（白字蓝底，无状态图标）──
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, info_row, 0, ' ', col_w);
+  char info[384];
+  int il = 0;
+  if (playlist[pi].artist[0])
+   il += snprintf(info + il, sizeof(info) - il, "  %s - %s", playlist[pi].artist, playlist[pi].title);
+  else
+   il += snprintf(info + il, sizeof(info) - il, "  %s", playlist[pi].title);
+  mvwprintw(win, info_row, 2, "%s", info);
+  wattroff(win, COLOR_PAIR(3));
+
+  // ── 进度条行（黑字白底）──
+  const char *icon = state==PLAYING?"▶":state==PAUSED?"⏸":"⏹";
+  const char *loop_str = "      ";
+  if (atomic_load(&loop_mode) == 1) loop_str = "[单曲]";
+  else if (atomic_load(&loop_mode) == 2) loop_str = "[列表]";
+  // 右侧附加信息（循环模式在前，字号固定防跳动）
+  char extra[64];
+  snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", loop_str, rate / 1000, atomic_load(&g_state.bits_per_sample));
+
+  wattron(win, COLOR_PAIR(5));
+  mvwhline(win, bar_row, 0, ' ', col_w);
+  char bar_line[512];
+  int bl = 0;
+  bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " %s %s / %s ", icon, cur_t, tot_t);
+  // 进度条宽度 = 剩余空间 - 右侧信息 - 边距
+  // 右侧固定 20 列（loop 6 + kHz 6 + bit 6 + 尾空 2），防跳动
+  int bar_w = col_w - bl - 20 - 3;
+  if (bar_w > 0) {
+   int filled = total_f > 0 ? (int)(cur_f * bar_w / total_f) : 0;
+   if (filled > bar_w) filled = bar_w;
+   for (int i = 0; i < bar_w && bl < (int)sizeof(bar_line)-4; i++)
+    bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, "%s", i < filled ? "━" : " ");
+  }
+  bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " │ %s", extra);
+  mvwaddstr(win, bar_row, 0, bar_line);
+  wattroff(win, COLOR_PAIR(5));
  } else {
- const char *hlp_loop = "";
- if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
- else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
- mvwprintw(win, bot_row, 2, "Tab切换面板 ↑↓选择 q退出 Ctrl+R刷新%s", hlp_loop);
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, bar_row, 0, ' ', col_w);
+  const char *hlp_loop = "";
+  if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
+  else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
+  mvwprintw(win, bar_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
+  wattroff(win, COLOR_PAIR(3));
  }
- wattroff(win, COLOR_PAIR(3));
+
 
  wmove(win, 2, active_panel == 0 ? 2 : left_w + 2);
  wrefresh(win);
@@ -864,6 +856,8 @@ int main(int argc, char *argv[]) {
  init_pair(1, COLOR_WHITE, COLOR_BLUE);   // 标题栏：白字蓝底
  init_pair(2, COLOR_WHITE, COLOR_CYAN);   // 选中行：白字青底
  init_pair(3, COLOR_WHITE, COLOR_BLUE);   // 底部栏：白字蓝底
+ init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
+ init_pair(5, COLOR_BLACK, COLOR_WHITE);   // 进度条：黑字白底
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
@@ -958,6 +952,7 @@ input:
  atomic_store(&play_index, target);
  strncpy(g_state.pending_path, playlist[target].id,
  sizeof(g_state.pending_path)-1);
+ atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
  }
  break;
@@ -983,7 +978,10 @@ input:
  }
  }
  pthread_mutex_unlock(&g_data_mutex);
- if (has_song) atomic_store(&g_state.command, 1);
+ if (has_song) {
+ atomic_store(&g_state.seek_frame, -1);
+ atomic_store(&g_state.command, 1);
+ }
  }
  }
  break;
@@ -1001,6 +999,8 @@ input:
 
  case 18:  // Ctrl+R 刷新缓存
  {
+ // 先停播，防止播放线程访问正在重建的 playlist
+ atomic_store(&g_state.command, 4);
  char cp[512];
  cache_path(cp, sizeof(cp));
  remove(cp);
@@ -1050,6 +1050,13 @@ input:
  playlist[i] = playlist[i + 1];
  atomic_fetch_sub(&song_count, 1);
  if (atomic_load(&play_index) > target) atomic_store(&play_index, atomic_load(&play_index) - 1);
+ // 调整 song_sel 防止越界（删最后一项时）
+ int new_cnt = 0;
+ for (int i = 0; i < atomic_load(&song_count); i++) {
+ if (strcmp(playlist[i].aux_label, dname) == 0) new_cnt++;
+ }
+ if (new_cnt > 0 && song_sel >= new_cnt)
+ song_sel = new_cnt - 1;
  }
  break;
 
@@ -1071,12 +1078,6 @@ input:
  long long cur_global = foff + local_play;
  long long target = (ch == KEY_LEFT) ? cur_global - step : cur_global + step;
  if (target < 0) target = 0;
- long long total_dur = atomic_load(&g_state.total_duration_frames);
- long long total = total_dur > 0 ? total_dur : atomic_load(&g_state.total_frames);
- if (total > 0 && target >= total) {
- atomic_store(&g_state.command, 4);
- break;
- }
  atomic_store(&g_state.seek_frame, target);
  pthread_mutex_lock(&g_data_mutex);
  if (g_state.cur_song[0]) {
