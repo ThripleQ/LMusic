@@ -273,10 +273,9 @@ static int parse_song(const char *song_json, Song *s) {
 
 // ── 公开 API ──────────────────────────────────────────────
 
-int netease_search(const char *keyword, Song *results, int max) {
-    char *json = run_cli("%s search %s", NETEASE_CLI, keyword);
-    if (!json) return 0;
-
+// 从原始 JSON 字符串解析搜索结果
+int netease_parse_search(const char *json, Song *results, int max) {
+    if (!json || !json[0]) return 0;
     int count = 0;
     const char *songs = json_obj_start(json, "songs");
     if (songs && *songs == '[') {
@@ -290,6 +289,57 @@ int netease_search(const char *keyword, Song *results, int max) {
             p = end;
         }
     }
+    return count;
+}
+
+int netease_parse_daily(const char *json, Song *results, int max) {
+    if (!json || !json[0]) return 0;
+    int count = 0;
+    const char *data = json_obj_start(json, "data");
+    if (data && *data == '{') {
+        const char *ds = json_obj_start(data, "dailySongs");
+        if (ds && *ds == '[') {
+            const char *p = ds + 1;
+            while (*p && count < max) {
+                while (*p && *p != '{' && *p != ']') p++;
+                if (*p == ']') break;
+                const char *end = json_match(p);
+                if (end - p > 10 && parse_song(p, &results[count]) == 0)
+                    count++;
+                p = end;
+            }
+        }
+    }
+    return count;
+}
+
+int netease_parse_playlist(const char *json, Song *results, int max) {
+    if (!json || !json[0]) return 0;
+    int count = 0;
+    const char *pl = json_obj_start(json, "playlist");
+    if (pl && *pl == '{') {
+        const char *tr = json_obj_start(pl, "tracks");
+        if (tr && *tr == '[') {
+            const char *p = tr + 1;
+            while (*p && count < max) {
+                while (*p && *p != '{' && *p != ']') p++;
+                if (*p == ']') break;
+                const char *end = json_match(p);
+                if (end - p > 10 && parse_song(p, &results[count]) == 0)
+                    count++;
+                p = end;
+            }
+        }
+    } else {
+        count = netease_parse_search(json, results, max);
+    }
+    return count;
+}
+
+int netease_search(const char *keyword, Song *results, int max) {
+    char *json = run_cli("%s search %s", NETEASE_CLI, keyword);
+    if (!json) return 0;
+    int count = netease_parse_search(json, results, max);
     free(json);
     return count;
 }

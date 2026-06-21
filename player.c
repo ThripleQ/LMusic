@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include <time.h>
 #include <wchar.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <alsa/asoundlib.h>
 #include <ncurses.h>
 #include <signal.h>
@@ -99,7 +101,18 @@ static int qr_next_check = 0;          // 下次轮询时间
 // ── 列表滚动 ──
 static int dir_scroll = 0;            // 左面板滚动偏移
 static int song_scroll = 0;           // 右面板滚动偏移（在过滤后列表中的位置）
-static int help_dismissed = 0;        // 帮助文字是否已消失
+static int help_dismissed = 0;
+
+// ── 加载动画 ──
+static int loading = 0;
+static int loading_done = 0;
+static int loading_filled = 0;
+static int loading_frame = 0;
+static char loading_msg[64];
+static char loading_buf[65536];
+static int loading_len = 0;
+static int loading_fd = -1;
+static FILE *loading_fp = NULL;        // 帮助文字是否已消失
 
 // ── 目录浏览 ──
 static char dirs[64][512];
@@ -573,6 +586,35 @@ static void load_netease_liked(void) {
     song_sel = 0;
 }
 
+// ── 异步加载 ──
+
+static void start_loading(const char *cmd, const char *msg) {
+    if (loading) return;
+    loading = 1; loading_done = 0; loading_filled = 0; loading_frame = 0;
+    loading_len = 0; strncpy(loading_msg, msg, sizeof(loading_msg)-1);
+    loading_fp = popen(cmd, "r");
+    if (!loading_fp) { loading = 0; return; }
+    loading_fd = fileno(loading_fp);
+    int fl = fcntl(loading_fd, F_GETFL, 0);
+    fcntl(loading_fd, F_SETFL, fl | O_NONBLOCK);
+}
+
+static void process_loading_result(void) {
+    loading_buf[loading_len] = 0;
+    Song results[MAX_SONGS];
+    int n = 0;
+    if (netease_submode == 1 || netease_submode == 2)
+        n = netease_parse_search(loading_buf, results, MAX_SONGS);
+    else if (netease_submode == 3)
+        n = netease_parse_daily(loading_buf, results, MAX_SONGS);
+    else if (netease_submode == 4)
+        n = netease_parse_playlist(loading_buf, results, MAX_SONGS);
+    if (n == 0) { load_netease_menu(); return; }
+    ne_count = n;
+    for (int i = 0; i < n; i++) ne_playlist[i] = results[i];
+    netease_mode = 1; song_sel = 0;
+}
+
 static void draw_ui(WINDOW *win, int selected, int col_w) {
  werase(win);
 
@@ -831,6 +873,22 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (quitting) {
   wattron(win, COLOR_PAIR(3));
   mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
+  wattroff(win, COLOR_PAIR(3));
+ } else if (loading) {
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, info_row, 0, ' ', col_w);
+  int lx = 2;
+  mvwprintw(win, info_row, lx, "%s", loading_msg);
+  lx += (int)strlen(loading_msg) + 1;
+  for (int i = 0; i < 20; i++, lx++) {
+   if (i < loading_filled) {
+    wattron(win, COLOR_PAIR(7));
+    mvwaddstr(win, info_row, lx, "\u2501");
+    wattroff(win, COLOR_PAIR(7));
+   } else {
+    mvwaddstr(win, info_row, lx, "\u2501");
+   }
+  }
   wattroff(win, COLOR_PAIR(3));
  } else if (pi >= 0 && pi < cur_total) {
   // ── 信息行（白字蓝底，无状态图标）──
@@ -1115,7 +1173,8 @@ int main(int argc, char *argv[]) {
  init_pair(3, COLOR_WHITE, COLOR_BLUE);   // 底部栏：白字蓝底
  init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
  init_pair(5, COLOR_BLACK, COLOR_WHITE);   // 进度条：黑字白底
- init_pair(6, COLOR_RED, COLOR_BLACK);     // 首页：亮红色
+ init_pair(6, COLOR_RED, COLOR_BLACK);
+ init_pair(7, COLOR_RED, COLOR_BLUE);     // 首页：亮红色
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
@@ -1146,6 +1205,25 @@ int main(int argc, char *argv[]) {
    if (r == 1) { qr_logging_in = 0; }
    else if (r == -1) { qr_logging_in = 0; }
    else { qr_next_check = now + 2; }
+  }
+ }
+
+ // ── 加载动画轮询 ──
+ if (loading) {
+  loading_frame++;
+  if (!loading_done && loading_fp) {
+   while (1) {
+    ssize_t r = read(loading_fd, loading_buf + loading_len, sizeof(loading_buf) - loading_len - 1);
+    if (r > 0) loading_len += r;
+    else if (r == 0 || (r < 0 && errno != EAGAIN)) {
+     loading_buf[loading_len] = 0; pclose(loading_fp); loading_fp = NULL; loading_fd = -1;
+     loading_done = 1; break;
+    } else break;
+   }
+   if (loading_frame % 6 == 0 && loading_filled < 20) loading_filled++;
+  } else if (loading_done) {
+   loading_filled++;
+   if (loading_filled > 20) { loading = 0; loading_done = 0; process_loading_result(); }
   }
  }
 
