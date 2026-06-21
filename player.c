@@ -1716,8 +1716,15 @@ input:
        }
       }
       if (target2 >= 0) {
-       // 网易云菜单项（ID 以 __ 开头）不视为歌曲
-       if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') break;
+       // 网易云菜单项（ID 以 __ 开头）：触发菜单动作
+       if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') {
+        int sel = song_sel;
+        if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
+        else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "加载推荐..."); }
+        else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "加载热歌榜..."); }
+        else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单..."); }
+        break;
+       }
        if (netease_mode) {
         char url2[512];
         if (netease_song_url(songs2[target2].id, url2, sizeof(url2)) == 0) {
