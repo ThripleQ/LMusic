@@ -2,6 +2,8 @@
 
 轻量级终端音乐播放器，cmus 风格双面板界面，FFmpeg 流式解码。
 
+> **⚠️ 仅支持 Linux** — ALSA 音频输出，不兼容 macOS / Windows。
+
 ## 功能
 
 - 支持 MP3、FLAC、WAV、OGG、AAC、M4A、WMA、Opus 等格式
@@ -13,7 +15,7 @@
 - 循环模式（不循环 / 单曲 / 列表）
 - 播放列表管理（删除、下一首、上一首）
 
-## 安装
+## 安装（仅 Linux）
 
 ### 自动安装
 
@@ -45,12 +47,6 @@ make && sudo make install
 **openSUSE:**
 ```bash
 sudo zypper install gcc ffmpeg-devel alsa-devel ncurses-devel
-make && sudo make install
-```
-
-**macOS (Homebrew):**
-```bash
-brew install gcc ffmpeg ncurses
 make && sudo make install
 ```
 
