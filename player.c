@@ -1267,6 +1267,8 @@ int main(int argc, char *argv[]) {
  noecho();
  keypad(stdscr, TRUE);
  mousemask(BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED, NULL);
+ mouseinterval(400);
+
  curs_set(0);
  timeout(30);
  set_escdelay(0);
