@@ -614,6 +614,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  dname = dname ? dname + 1 : dirs[d];
  char marker = ' ';
  if (d == pi) marker = '>';  // 当前播放歌曲所在目录
+ if (active_panel == 0 && d == selected && d == netease_vdir_idx) marker = '>';
  int drow = 2 + (d - dir_scroll);
  if (d == netease_vdir_idx) {
  // 网易云：永远亮红色（选中不变色）
