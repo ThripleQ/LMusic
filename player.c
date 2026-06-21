@@ -79,6 +79,7 @@ static atomic_int song_count = 0;
 static int dir_counts[64];
 static int active_panel = 0;
 static int quitting = 0;  // 退出确认标志
+struct { int idx; struct timespec ts; int has; } mouse_pending = {0};
 static time_t last_enter = 0;  // Enter 防抖
 static volatile sig_atomic_t sigint_caught = 0;
 
@@ -1328,6 +1329,16 @@ int main(int argc, char *argv[]) {
  draw_ui(stdscr, selected, col_w);
 
 input:
+ if (mouse_pending.has) {
+  struct timespec now_t;
+  clock_gettime(CLOCK_MONOTONIC, &now_t);
+  long long ms2 = (now_t.tv_sec - mouse_pending.ts.tv_sec) * 1000LL + (now_t.tv_nsec - mouse_pending.ts.tv_nsec) / 1000000LL;
+  if (ms2 >= 250) {
+   song_sel = mouse_pending.idx;
+   help_dismissed = 1;
+   mouse_pending.has = 0;
+  }
+ }
  int ch = getch();
  if (ch != ERR && ch != 'q' && ch != 'Q') quitting = 0;
  if (ch != ERR) help_dismissed = 1;
@@ -1671,13 +1682,30 @@ input:
   int lw = 20; if (lw > bcols/3) lw = bcols/3;
   int brow = 2;
   int list_rows = brows - 4;
-  // 左面板：点击目录
+
+  // ── 滚轮 ──
+  if (ev.bstate & BUTTON4_PRESSED) {
+   if (active_panel == 1) { if (song_scroll > 0) song_scroll--; }
+   else if (active_panel == 0) { if (dir_scroll > 0) dir_scroll--; }
+   break;
+  }
+  if (ev.bstate & BUTTON5_PRESSED) {
+   if (active_panel == 1) { song_scroll++; }
+   else if (active_panel == 0) { if (dir_scroll < dir_count - list_rows) dir_scroll++; }
+   break;
+  }
+
+  // ── 左键 ──
+  if (!(ev.bstate & BUTTON1_PRESSED)) break;
+
+  // ── 左面板 ──
   if (ev.x < lw && ev.y >= brow && ev.y < brow + list_rows) {
    int dir_idx = ev.y - brow + dir_scroll;
    if (dir_idx >= 0 && dir_idx < dir_count) {
     selected = dir_idx;
     active_panel = 0;
     song_sel = 0; song_scroll = 0;
+    mouse_pending.has = 0;
     if (selected == netease_vdir_idx && !netease_mode) {
      load_netease_menu(); netease_mode = 1;
     } else if (selected != netease_vdir_idx && netease_mode) {
@@ -1686,81 +1714,77 @@ input:
    }
    break;
   }
-  // 右面板：点击歌曲
-  if (ev.x > lw && ev.y >= brow && ev.y < brow + list_rows) {
+
+  // ── 右面板 ──
+  if (ev.x > lw && ev.y >= brow && ev.y < brows - 2) {
    active_panel = 1;
-   Song *slist = netease_mode ? ne_playlist : playlist;
-   int stotal = netease_mode ? ne_count : atomic_load(&song_count);
    const char *sdir = "";
    if (selected >= 0 && selected < dir_count) {
-    const char *sdp = strrchr(dirs[selected], '/');
-    sdir = sdp ? sdp + 1 : dirs[selected];
+    const char *sp = strrchr(dirs[selected], '/');
+    sdir = sp ? sp + 1 : dirs[selected];
    }
-   int matched = 0;
-   for (int i = 0; i < stotal; i++) {
+   Song *slist = netease_mode ? ne_playlist : playlist;
+   int total = netease_mode ? ne_count : atomic_load(&song_count);
+   int clicked = -1, cnt = 0;
+   for (int i = 0; i < total; i++) {
     if (strcmp(slist[i].aux_label, sdir) != 0) continue;
-    matched++;
-    if (matched == song_scroll + (ev.y - brow) + 1) {
-     song_sel = matched - 1;
-     // 双击检测：800ms 内同逻辑索引第二次按下算双击
-     static struct timespec last_mclick = {0, 0};
-     static int last_db_idx = -1;
-     struct timespec now_t;
-     clock_gettime(CLOCK_MONOTONIC, &now_t);
-     long long ms = (now_t.tv_sec - last_mclick.tv_sec) * 1000LL + (now_t.tv_nsec - last_mclick.tv_nsec) / 1000000LL;
-     int is_dbl = (last_db_idx == song_sel && ms > 0 && ms < 800);
-     last_mclick = now_t;
-     last_db_idx = song_sel;
-     if (is_dbl) {
-      int cnt2 = 0, target2 = -1;
-      Song *songs2 = netease_mode ? ne_playlist : playlist;
-      int total2 = netease_mode ? ne_count : atomic_load(&song_count);
-      for (int j = 0; j < total2; j++) {
-       if (strcmp(songs2[j].aux_label, sdir) == 0) {
-        if (cnt2 == song_sel) { target2 = j; break; }
-        cnt2++;
-       }
-      }
-      if (target2 >= 0) {
-       // 网易云菜单项（ID 以 __ 开头）：触发菜单动作
-       if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') {
-        int sel = song_sel;
-        if (sel == 0) {
-         // 搜索提示（Enter 弹出输入框）
-         mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', getmaxx(stdscr));
-         mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "按 Enter 输入搜索词");
-         wrefresh(stdscr);
-        }
-        else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
-        else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "加载推荐..."); }
-        else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "加载热歌榜..."); }
-        else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单..."); }
-        goto end_mouse;  // 菜单动作完成后直接退出
-       }
-       if (netease_mode) {
-        char url2[512];
-        if (netease_song_url(songs2[target2].id, url2, sizeof(url2)) == 0) {
-         strncpy(g_state.pending_path, url2, sizeof(g_state.pending_path)-1);
-         atomic_store(&play_index, target2);
-         atomic_store(&g_state.seek_frame, -1);
-         atomic_store(&g_state.command, 1);
-        }
-       } else {
-        strncpy(g_state.pending_path, songs2[target2].id, sizeof(g_state.pending_path)-1);
-        atomic_store(&play_index, target2);
+    cnt++;
+    if (cnt == song_scroll + (ev.y - brow) + 1) {
+     clicked = cnt - 1;
+     break;
+    }
+   }
+   if (clicked < 0) break;
+
+   struct timespec now_t;
+   clock_gettime(CLOCK_MONOTONIC, &now_t);
+   long long elapsed = mouse_pending.has
+    ? (now_t.tv_sec - mouse_pending.ts.tv_sec) * 1000LL + (now_t.tv_nsec - mouse_pending.ts.tv_nsec) / 1000000LL
+    : 9999;
+
+   if (mouse_pending.has && mouse_pending.idx == clicked && elapsed < 500) {
+    // 双击：播放
+    mouse_pending.has = 0;
+    song_sel = clicked;
+    int cnt2 = 0, target = -1;
+    for (int j = 0; j < total; j++) {
+     if (strcmp(slist[j].aux_label, sdir) != 0) continue;
+     if (cnt2 == song_sel) { target = j; break; }
+     cnt2++;
+    }
+    if (target >= 0) {
+     if (netease_mode && slist[target].id[0] == '_' && slist[target].id[1] == '_') {
+      int sel = song_sel;
+      if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
+      else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "加载推荐..."); }
+      else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "加载热歌榜..."); }
+      else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单..."); }
+     } else {
+      if (netease_mode) {
+       char url2[512];
+       if (netease_song_url(slist[target].id, url2, sizeof(url2)) == 0) {
+        strncpy(g_state.pending_path, url2, sizeof(g_state.pending_path)-1);
+        atomic_store(&play_index, target);
         atomic_store(&g_state.seek_frame, -1);
         atomic_store(&g_state.command, 1);
        }
+      } else {
+       strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
+       atomic_store(&play_index, target);
+       atomic_store(&g_state.seek_frame, -1);
+       atomic_store(&g_state.command, 1);
       }
      }
-     break;
     }
+   } else {
+    // 单击：记录待处理
+    mouse_pending.idx = clicked;
+    mouse_pending.ts = now_t;
+    mouse_pending.has = 1;
    }
   }
   break;
  }
-
-  end_mouse:
  case KEY_RESIZE: break;
  }
  }
