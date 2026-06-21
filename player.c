@@ -1709,6 +1709,8 @@ input:
        }
       }
       if (target2 >= 0) {
+       // 网易云菜单项（ID 以 __ 开头）不视为歌曲
+       if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') break;
        if (netease_mode) {
         char url2[512];
         if (netease_song_url(songs2[target2].id, url2, sizeof(url2)) == 0) {
