@@ -1266,7 +1266,7 @@ int main(int argc, char *argv[]) {
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
- mousemask(BUTTON1_PRESSED, NULL);
+ mousemask(BUTTON1_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
 
  curs_set(0);
  timeout(30);
@@ -1663,6 +1663,7 @@ input:
 
  case KEY_MOUSE:
  {
+  quitting = 0;
   MEVENT ev;
   if (getmouse(&ev) != OK) break;
   int brows = getmaxy(stdscr);
@@ -1724,12 +1725,17 @@ input:
        // 网易云菜单项（ID 以 __ 开头）：触发菜单动作
        if (netease_mode && songs2[target2].id[0] == '_' && songs2[target2].id[1] == '_') {
         int sel = song_sel;
-        if (sel == 0) { /*搜索需键盘输入，不做处理*/ }
+        if (sel == 0) {
+         // 搜索提示（Enter 弹出输入框）
+         mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', getmaxx(stdscr));
+         mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "按 Enter 输入搜索词");
+         wrefresh(stdscr);
+        }
         else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "加载红心..."); }
         else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "加载推荐..."); }
         else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "加载热歌榜..."); }
         else if (sel == 4) { netease_submode = 5; start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单..."); }
-        break;
+        goto end_mouse;  // 菜单动作完成后直接退出
        }
        if (netease_mode) {
         char url2[512];
@@ -1754,6 +1760,7 @@ input:
   break;
  }
 
+  end_mouse:
  case KEY_RESIZE: break;
  }
  }
