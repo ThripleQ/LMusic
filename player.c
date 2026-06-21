@@ -676,15 +676,30 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  format_time(tot_t, 16, total_f, rate);
 
  if (qr_logging_in) {
-  // 扫码登录——显示二维码和状态
+  // 扫码登录——ncurses 内渲染二维码
+  char cmd[1024];
+  snprintf(cmd, sizeof(cmd), "echo '%s' | qrencode -t ANSIUTF8 -m 1 -s 2 2>/dev/null", qr_url);
+  FILE *fp = popen(cmd, "r");
+  if (fp) {
+   // 清屏并居中显示
+   for (int r = 1; r < rows - 3; r++) mvwhline(win, r, 0, ' ', col_w);
+   int qr_y = (rows - 3) / 2 - 10;
+   if (qr_y < 2) qr_y = 2;
+   char qr_line[256];
+   int ln = 0;
+   while (ln < 30 && fgets(qr_line, sizeof(qr_line), fp)) {
+    size_t len = strlen(qr_line);
+    while (len > 0 && qr_line[len-1] == '\n') qr_line[--len] = '\0';
+    int x = (col_w - (int)len) / 2;
+    if (x < 0) x = 0;
+    mvwaddstr(win, qr_y + ln, x, qr_line);
+    ln++;
+   }
+   pclose(fp);
+  }
   wattron(win, COLOR_PAIR(3));
-  mvwhline(win, info_row, 0, ' ', col_w);
-  mvwprintw(win, info_row, 2, "请用网易云 App 扫描二维码登录");
+  mvwprintw(win, info_row, 2, "📱 请用网易云 App 扫码  (任意键取消)");
   wattroff(win, COLOR_PAIR(3));
-  wattron(win, COLOR_PAIR(5));
-  mvwhline(win, bar_row, 0, ' ', col_w);
-  mvwprintw(win, bar_row, 2, "📱 %s  (按任意键取消)", qr_url);
-  wattroff(win, COLOR_PAIR(5));
  } else if (quitting) {
   wattron(win, COLOR_PAIR(3));
   mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
@@ -1194,10 +1209,10 @@ input:
  }
  break;
 
- case 'l': case 'L':  // 网易云扫码登录
+ case 'l': case 'L':
   if (!qr_logging_in && netease_qr_get_key(qr_url, sizeof(qr_url), qr_unikey, sizeof(qr_unikey)) == 0) {
    qr_logging_in = 1;
-   qr_next_check = 0;  // 立即开始轮询
+   qr_next_check = 0;
   }
   break;
 
