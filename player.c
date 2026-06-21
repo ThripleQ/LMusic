@@ -13,6 +13,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <time.h>
+static int netease_name_fetched = 0;
 #include <wchar.h>
 #include <ctype.h>
 #include <errno.h>
@@ -667,6 +668,24 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   const char *dname = strrchr(dirs[selected], '/');
   dname = dname ? dname + 1 : dirs[selected];
   mvwprintw(win, 0, left_w + 2, "%s", dname);
+  if (selected == netease_vdir_idx) {
+   // 首次进入网易云目录时抓一次用户名
+   if (!netease_account_name[0] && !netease_name_fetched) {
+    netease_name_fetched = 1;
+    char *nm = netease_get_account_name();
+    if (nm) {
+     char *nl = strchr(nm, 10); if (nl) *nl = 0;
+     strncpy(netease_account_name, nm, 63);
+     free(nm);
+    }
+   }
+   wattron(win, A_DIM);
+   if (netease_account_name[0])
+    mvwprintw(win, 0, left_w + 2 + (int)strlen(dname), " [%s]", netease_account_name);
+   else
+    mvwprintw(win, 0, left_w + 2 + (int)strlen(dname), " [未登录]");
+   wattroff(win, A_DIM);
+  }
  }
  // 循环模式（固定 6 列宽，"LMusic" 左边）
  const char *title_loop = "      ";
@@ -1254,7 +1273,7 @@ int main(int argc, char *argv[]) {
    qr_next_check = now + 1;  // 首次延迟 1s, 先让 draw_ui 渲染二维码
   } else if (now >= qr_next_check) {
    int r = netease_qr_check(qr_unikey);
-   if (r == 1) { qr_logging_in = 0; }
+  if (r == 1) { qr_logging_in = 0; do { char *nm = netease_get_account_name(); if (nm) { char *nl = strchr(nm, 10); if (nl) *nl = 0; strncpy(netease_account_name, nm, 63); free(nm); } } while(0); }
    else if (r == -1) { qr_logging_in = 0; }
    else { qr_next_check = now + 2; }
   }

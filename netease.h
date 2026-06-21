@@ -4,6 +4,8 @@
 #ifndef NETEASE_H
 #define NETEASE_H
 
+extern char netease_account_name[64];
+
 #include "song.h"
 
 #define NETEASE_CLI "netease-cli"
@@ -41,14 +43,10 @@ int netease_qr_check(const char *unikey);
 
 // 检查登录状态
 int netease_login_status(void);
+char *netease_get_account_name(void);
 
 #endif // NETEASE_H
 
-// 从原始 JSON 解析搜索/歌单结果（用于异步加载）
-int netease_parse_search(const char *json, Song *results, int max);
-int netease_parse_daily(const char *json, Song *results, int max);
-int netease_parse_playlist(const char *json, Song *results, int max);
-int netease_parse_playlists(const char *json, Song *results, int max);
 // 从原始 JSON 解析搜索/歌单结果（用于异步加载）
 int netease_parse_search(const char *json, Song *results, int max);
 int netease_parse_daily(const char *json, Song *results, int max);

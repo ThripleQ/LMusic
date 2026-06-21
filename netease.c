@@ -2,6 +2,8 @@
 // 通过 popen() 调用 netease-cli Go 桥接，解析 JSON
 
 #include "netease.h"
+
+char netease_account_name[64] = "";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -577,4 +579,8 @@ int netease_login_status(void) {
     FILE *f = fopen(path, "r");
     if (f) { fclose(f); return 1; }
     return 0;
+}
+
+char *netease_get_account_name(void) {
+    return run_cli("%s account-name 2>/dev/null", NETEASE_CLI);
 }

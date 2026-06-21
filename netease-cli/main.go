@@ -317,6 +317,29 @@ case "playlists": {
 	fmt.Println(string(b))
 }
 
+case "account-name":
+	acctSvc := service.UserAccountService{}
+	_, body := acctSvc.AccountInfo()
+	var raw map[string]interface{}
+	if json.Unmarshal(body, &raw) != nil {
+		fmt.Println("error")
+		return
+	}
+	name := ""
+	if prof, ok := raw["profile"].(map[string]interface{}); ok {
+		if n, ok := prof["nickname"].(string); ok { name = n }
+	}
+	if name == "" {
+		if acct, ok := raw["account"].(map[string]interface{}); ok {
+			if n, ok := acct["userName"].(string); ok { name = n }
+		}
+	}
+	if name != "" {
+		fmt.Println(name)
+	} else {
+		fmt.Println("未登录")
+	}
+
 	default:
 		fmt.Fprintf(os.Stderr, "unknown cmd: %s\n", cmd)
 		os.Exit(1)
