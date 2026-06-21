@@ -320,6 +320,21 @@ static void *playback_thread(void *arg) {
  continue;
  }
 
+ // ── 快进/后退：只 seek，不重开流 ──
+ if (cmd == 7) {
+  long long st = atomic_exchange(&g_state.seek_frame, -1);
+  int sr = atomic_load(&g_state.sample_rate);
+  if (g_stream_dec && sr > 0 && st >= 0) {
+   stream_seek(g_stream_dec, st, sr);
+   g_stream_local_total = 0;
+   g_decode_done = false;
+   atomic_store(&g_state.cur_frame, st);
+   atomic_store(&g_state.playback_frame, st);
+   if (pcm) { snd_pcm_drop(pcm); snd_pcm_prepare(pcm); }
+  }
+  continue;
+ }
+
  // ── 停止 ──
  if (cmd == 4) {
  if (pcm) { snd_pcm_drop(pcm); snd_pcm_close(pcm); pcm = NULL; }
@@ -1587,7 +1602,7 @@ input:
  sizeof(g_state.pending_path)-1);
  }
  pthread_mutex_unlock(&g_data_mutex);
- atomic_store(&g_state.command, 1);
+ atomic_store(&g_state.command, 7);
  }
  break;
 
