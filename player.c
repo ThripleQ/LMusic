@@ -875,14 +875,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  char cur_t[16], tot_t[16];
  format_time(cur_t, 16, cur_f, rate);
  format_time(tot_t, 16, total_f, rate);
- // 常在进度条数据
- const char *icon = state==PLAYING?"▶":state==PAUSED?"⏸":"⏹";
- const char *loop_str = "      ";
- if (atomic_load(&loop_mode) == 1) loop_str = "[单曲]";
- else if (atomic_load(&loop_mode) == 2) loop_str = "[列表]";
- char extra[64];
- snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", loop_str, rate / 1000, atomic_load(&g_state.bits_per_sample));
-
 
  if (qr_logging_in) {
   // 扫码登录——ncurses 内渲染二维码
@@ -985,7 +977,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattron(win, COLOR_PAIR(5));
   mvwhline(win, bar_row, 0, ' ', col_w);
   char bar_line[512];
-  int bl = snprintf(bar_line, sizeof(bar_line), " ⏹ 00:00 / 00:00 ");
+  int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
   int bar_w2 = col_w - bl - 20 - 3;
   for (int i = 0; i < bar_w2 && bl < (int)sizeof(bar_line)-4; i++)
    bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " ");
@@ -1029,7 +1021,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattron(win, COLOR_PAIR(5));
   mvwhline(win, bar_row, 0, ' ', col_w);
   char bar_line[512];
-  int bl = snprintf(bar_line, sizeof(bar_line), " ⏹ 00:00 / 00:00 ");
+  int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
   int bar_w = col_w - bl - 20 - 3;
   for (int i = 0; i < bar_w && bl < (int)sizeof(bar_line)-4; i++)
    bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " ");
@@ -1038,36 +1030,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattroff(win, COLOR_PAIR(5));
  }
 
- // ── 进度条行（常驻）──
- {
-  const char *icon2 = state==PLAYING?"▶":state==PAUSED?"⏸":"⏹";
-  wattron(win, COLOR_PAIR(5));
-  mvwhline(win, bar_row, 0, ' ', col_w);
-  char bar_line[512];
-  char cur_t2[16] = "00:00", tot_t2[16] = "00:00";
-  int bl2 = 0;
-  long long frame_off2 = atomic_load(&g_state.frame_offset);
-  long long cur_f2 = (long long)(frame_off2 + atomic_load(&g_state.playback_frame));
-  long long meta_dur2 = atomic_load(&g_state.total_duration_frames);
-  long long peak_fr2 = atomic_load(&g_state.peak_total_frames);
-  long long decoded_fr2 = atomic_load(&g_state.total_frames);
-  long long best2 = meta_dur2 ? meta_dur2 : (peak_fr2 ? peak_fr2 : decoded_fr2);
-  int rate2 = atomic_load(&g_state.sample_rate);
-  if (pi >= 0 && pi < cur_total && best2 > 0 && rate2 > 0) {
-   format_time(cur_t2, 16, (snd_pcm_uframes_t)cur_f2, rate2);
-   format_time(tot_t2, 16, (snd_pcm_uframes_t)best2, rate2);
-   bl2 = snprintf(bar_line, sizeof(bar_line), " %s %s / %s ", icon2, cur_t2, tot_t2);
-  } else {
-   bl2 = snprintf(bar_line, sizeof(bar_line), " ⏹ 00:00 / 00:00 ");
-  }
-  int bar_w = col_w - bl2 - 20 - 3;
-  for (int i2 = 0; i2 < bar_w && bl2 < (int)sizeof(bar_line)-4; i2++)
-   bl2 += snprintf(bar_line + bl2, sizeof(bar_line) - bl2, "%s",
-    best2 > 0 && rate2 > 0 ? (cur_f2 * (long long)bar_w / best2 > i2 ? "\u2501" : " ") : " ");
-  bl2 += snprintf(bar_line + bl2, sizeof(bar_line) - bl2, " \u2502 %s", extra);
-  mvwaddstr(win, bar_row, 0, bar_line);
-  wattroff(win, COLOR_PAIR(5));
- }
 
  wmove(win, 2, active_panel == 0 ? 2 : left_w + 2);
  wrefresh(win);
