@@ -96,6 +96,10 @@ decoder.c/h     — FFmpeg 流式解码封装
 
 Song 抽象设计预留 `SRC_NETEASE` 源类型，便于未来接入在线音乐。
 
+## 致谢
+
+UI 设计灵感来自 [cmus](https://cmus.github.io) — 致敬最好的终端音乐播放器。
+
 ## 许可
 
 MIT
