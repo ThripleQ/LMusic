@@ -878,20 +878,17 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (loading) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
-  int lx = 2;
-  mvwprintw(win, info_row, lx, "%s", loading_msg);
-  lx += (int)strlen(loading_msg) + 2;
-  // 进度条宽度自适应终端
-  int bar_w = col_w - lx - 2;
+  int bar_w = col_w - 4;
   if (bar_w < 4) bar_w = 4;
   int filled = (loading_filled * bar_w + 10) / 20;
+  int lx = 2;
   for (int i = 0; i < bar_w; i++, lx++) {
    if (i < filled) {
     wattron(win, COLOR_PAIR(7));
-    mvwaddstr(win, info_row, lx, "\u2501");
+    mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(7));
    } else {
-    mvwaddstr(win, info_row, lx, "\u2501");
+    mvwaddstr(win, info_row, lx, "━");
    }
   }
   wattroff(win, COLOR_PAIR(3));
