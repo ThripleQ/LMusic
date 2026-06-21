@@ -871,13 +871,18 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " │ %s", extra);
   mvwaddstr(win, bar_row, 0, bar_line);
   wattroff(win, COLOR_PAIR(5));
- } else {
+ } else if (!help_dismissed) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, bar_row, 0, ' ', col_w);
   const char *hlp_loop = "";
   if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
   else if (atomic_load(&loop_mode) == 2) hlp_loop = " [列表]";
   mvwprintw(win, bar_row, 2, "Tab切换面板 ↑↓选择 Enter播放 q退出 Ctrl+R刷新%s", hlp_loop);
+  wattroff(win, COLOR_PAIR(3));
+ } else {
+  // 帮助已消失，底部栏清空
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, bar_row, 0, ' ', col_w);
   wattroff(win, COLOR_PAIR(3));
  }
 
