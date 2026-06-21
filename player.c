@@ -1270,7 +1270,7 @@ int main(int argc, char *argv[]) {
  mousemask(BUTTON1_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
 
  curs_set(0);
- timeout(30);
+ timeout(10);
  set_escdelay(0);
 
  int selected = init_dir, running = 1, col_w;
@@ -1408,7 +1408,7 @@ input:
    mvwhline(stdscr, sr - 2, 0, ' ', col_w);
    mvwprintw(stdscr, sr - 2, 2, "搜索: ");
    int sp = 0; netease_search_buf[0] = '\0';
-   timeout(100); curs_set(1);
+   timeout(50); curs_set(1);
    while (1) {
     int c = getch();
     if (c == '\n' || c == '\r') break;
@@ -1422,7 +1422,7 @@ input:
      mvwaddch(stdscr, sr - 2, 2 + sp - 1, c);
     }
    }
-   noecho(); curs_set(0); timeout(30);
+   noecho(); curs_set(0); timeout(10);
    if (netease_search_buf[0]) {
     netease_submode = 1;
     char cmd[1024];
@@ -1750,7 +1750,7 @@ input:
       mvwhline(stdscr, brows - 2, 0, ' ', bcols);
       mvwprintw(stdscr, brows - 2, 2, "搜索: ");
       int sp2 = 0; netease_search_buf[0] = '\0';
-      timeout(100); curs_set(1);
+      timeout(50); curs_set(1);
       while (1) {
        int c = getch();
        if (c == '\n' || c == '\r') break;
@@ -1764,7 +1764,7 @@ input:
         mvwaddch(stdscr, brows - 2, 2 + sp2 - 1, c);
        }
       }
-      noecho(); curs_set(0); timeout(30);
+      noecho(); curs_set(0); timeout(10);
       if (netease_search_buf[0]) {
        char sq[256]; int si = 0;
        for (const char *p = netease_search_buf; *p && si < 248; p++) {
