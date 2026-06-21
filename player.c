@@ -618,12 +618,24 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  int drow = 2 + (d - dir_scroll);
  if (d == netease_vdir_idx) {
  // 网易云：永远亮红色（选中不变色）
- wattron(win, COLOR_PAIR(6) | A_BOLD);
- mvwprintw(win, drow, 2, "%c %s", marker, dname);
- wattroff(win, COLOR_PAIR(6) | A_BOLD);
+ if (active_panel == 0 && d == selected) {
+  wattron(win, COLOR_PAIR(6) | A_BOLD);
+  mvwaddstr(win, drow, 0, "▐");
+  mvwprintw(win, drow, 2, "%c %s", marker, dname);
+  mvwaddstr(win, drow, left_w, "▌");
+  wattroff(win, COLOR_PAIR(6) | A_BOLD);
+ } else {
+  wattron(win, COLOR_PAIR(6) | A_BOLD);
+  mvwprintw(win, drow, 2, "%c %s", marker, dname);
+  wattroff(win, COLOR_PAIR(6) | A_BOLD);
+ }
  } else if (active_panel == 0 && d == selected) {
+ wattron(win, COLOR_PAIR(6) | A_BOLD);
+ mvwaddstr(win, drow, 0, "▐");
+ wattroff(win, COLOR_PAIR(6) | A_BOLD);
  wattron(win, COLOR_PAIR(2) | A_BOLD);
  mvwprintw(win, drow, 2, "%c %s", marker, dname);
+ mvwaddstr(win, drow, left_w, "▌");
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else {
  int has_songs = 0;
