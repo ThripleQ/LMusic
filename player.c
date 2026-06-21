@@ -978,10 +978,12 @@ int main(int argc, char *argv[]) {
  refresh();
  goto input;
  }
- // 网易云扫码登录轮询（网络检查）
+ // 网易云扫码登录轮询
  if (qr_logging_in) {
   int now = time(NULL);
-  if (now >= qr_next_check) {
+  if (qr_next_check == 0) {
+   qr_next_check = now + 1;  // 首次延迟 1s, 先让 draw_ui 渲染二维码
+  } else if (now >= qr_next_check) {
    int r = netease_qr_check(qr_unikey);
    if (r == 1) { qr_logging_in = 0; }
    else if (r == -1) { qr_logging_in = 0; }
@@ -1210,9 +1212,12 @@ input:
  break;
 
  case 'l': case 'L':
-  if (!qr_logging_in && netease_qr_get_key(qr_url, sizeof(qr_url), qr_unikey, sizeof(qr_unikey)) == 0) {
-   qr_logging_in = 1;
-   qr_next_check = 0;
+  if (!qr_logging_in) {
+   remove("cookie.txt");  // 清除旧 cookie 防止 API 失败
+   if (netease_qr_get_key(qr_url, sizeof(qr_url), qr_unikey, sizeof(qr_unikey)) == 0) {
+    qr_logging_in = 1;
+    qr_next_check = 0;
+   }
   }
   break;
 
