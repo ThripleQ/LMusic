@@ -541,8 +541,8 @@ static void load_netease_menu(void) {
         snprintf(ne_playlist[i].aux_label, sizeof(ne_playlist[i].aux_label), "网易云");
     }
     snprintf(ne_playlist[0].id, sizeof(ne_playlist[0].id), "__search__");
-    snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "🔍 搜索");
-    snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "❤ 红心歌单");
+    snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "搜索");
+    snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "红心歌单");
     snprintf(ne_playlist[2].id, sizeof(ne_playlist[2].id), "__daily__");
     snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "每日推荐");
     snprintf(ne_playlist[3].id, sizeof(ne_playlist[3].id), "__hot__");
@@ -1414,7 +1414,7 @@ input:
    start_loading("netease-cli playlist 3778678 2>/dev/null", "\u266a 加载热歌榜...");
   } else if (song_sel == 4) {
    netease_submode = 5;
-   start_loading("netease-cli playlists 2>/dev/null", "💿 加载收藏歌单...");
+   start_loading("netease-cli playlists 2>/dev/null", "加载收藏歌单...");
   }
   break;
  }
