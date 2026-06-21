@@ -99,6 +99,7 @@ static int qr_next_check = 0;          // 下次轮询时间
 // ── 列表滚动 ──
 static int dir_scroll = 0;            // 左面板滚动偏移
 static int song_scroll = 0;           // 右面板滚动偏移（在过滤后列表中的位置）
+static int help_dismissed = 0;        // 帮助文字是否已消失
 
 // ── 目录浏览 ──
 static char dirs[64][512];
@@ -1119,6 +1120,7 @@ int main(int argc, char *argv[]) {
 
 input:
  int ch = getch();
+ if (ch != ERR) help_dismissed = 1;
  switch (ch) {
  case 'q': case 'Q':
  if (!quitting) {
