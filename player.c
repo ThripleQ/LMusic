@@ -1659,6 +1659,50 @@ input:
  }
  break;
 
+ case KEY_MOUSE:
+ {
+  MEVENT ev;
+  if (getmouse(&ev) != OK) break;
+  int brows = getmaxy(stdscr);
+  int bcols = getmaxx(stdscr);
+  int lw = 20; if (lw > bcols/3) lw = bcols/3;
+  int brow = 2;
+  int list_rows = brows - 4;
+  // 左面板：点击目录
+  if (ev.x < lw && ev.y >= brow && ev.y < brow + list_rows) {
+   int dir_idx = ev.y - brow + dir_scroll;
+   if (dir_idx >= 0 && dir_idx < dir_count) {
+    selected = dir_idx;
+    if (selected == netease_vdir_idx && !netease_mode) {
+     load_netease_menu(); netease_mode = 1;
+    } else if (selected != netease_vdir_idx && netease_mode) {
+     netease_mode = 0;
+    }
+   }
+   break;
+  }
+  // 右面板：点击歌曲
+  if (ev.x > lw && ev.y >= brow && ev.y < brow + list_rows) {
+   Song *slist = netease_mode ? ne_playlist : playlist;
+   int stotal = netease_mode ? ne_count : atomic_load(&song_count);
+   const char *sdir = "";
+   if (selected >= 0 && selected < dir_count) {
+    const char *sdp = strrchr(dirs[selected], '/');
+    sdir = sdp ? sdp + 1 : dirs[selected];
+   }
+   int matched = 0;
+   for (int i = 0; i < stotal; i++) {
+    if (strcmp(slist[i].aux_label, sdir) != 0) continue;
+    matched++;
+    if (matched == song_scroll + (ev.y - brow) + 1) {
+     song_sel = matched - 1;
+     break;
+    }
+   }
+  }
+  break;
+ }
+
  case KEY_RESIZE: break;
  }
  }
