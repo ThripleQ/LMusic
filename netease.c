@@ -21,15 +21,34 @@ static char *json_str(const char *json, const char *key) {
     p += strlen(search);
     while (*p && (*p == ':' || *p == ' ' || *p == '\t' || *p == '\n')) p++;
     if (*p == '"') {
-        // 字符串值
+        // 字符串值（解码 \uXXXX 转义）
         p++;
-        const char *end = strchr(p, '"');
-        if (!end) return NULL;
-        size_t len = end - p;
-        char *out = malloc(len + 1);
+        // 先计算解码后的长度
+        size_t cap = 512;
+        char *out = malloc(cap);
         if (!out) return NULL;
-        memcpy(out, p, len);
-        out[len] = '\0';
+        size_t w = 0;
+        while (*p && *p != '"' && w < cap - 1) {
+            if (*p == '\\' && *(p+1) == 'u' && isxdigit(*(p+2)) && isxdigit(*(p+3)) && isxdigit(*(p+4)) && isxdigit(*(p+5))) {
+                // \uXXXX → 单个字符
+                char hex[5] = {*(p+2), *(p+3), *(p+4), *(p+5), '\0'};
+                unsigned long cp = strtoul(hex, NULL, 16);
+                if (cp < 0x80) {
+                    out[w++] = (char)cp;
+                } else if (cp < 0x800) {
+                    out[w++] = (char)(0xC0 | (cp >> 6));
+                    out[w++] = (char)(0x80 | (cp & 0x3F));
+                } else {
+                    out[w++] = (char)(0xE0 | (cp >> 12));
+                    out[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+                    out[w++] = (char)(0x80 | (cp & 0x3F));
+                }
+                p += 6;
+            } else {
+                out[w++] = *p++;
+            }
+        }
+        out[w] = '\0';
         return out;
     } else if (isdigit(*p) || *p == '-') {
         // 数字值
