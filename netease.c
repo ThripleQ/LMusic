@@ -196,7 +196,23 @@ static char *album_name(const char *song_json) {
 static int parse_song(const char *song_json, Song *s) {
     s->source = SRC_NETEASE;
 
-    char *id = json_str(song_json, "id");
+    // 取歌曲 ID：跳过 al、ar 和 privilege 里嵌套的 id
+    const char *id_start = song_json;
+    for (int skip = 0; skip < 2; skip++) {
+        static const char *skip_keys[] = {"al", "ar", "privilege"};
+        const char *key = skip_keys[skip];
+        char key_q[32]; snprintf(key_q, sizeof(key_q), "\"%s\"", key);
+        const char *found = strstr(id_start, key_q);
+        if (found) {
+            const char *open = found + strlen(key_q);
+            while (*open && *open != '{' && *open != '[') open++;
+            if (*open == '{' || *open == '[') {
+                const char *close = json_match(open);
+                if (close) id_start = close;
+            }
+        }
+    }
+    char *id = json_str(id_start, "id");
     if (!id) return -1;
     snprintf(s->id, sizeof(s->id), "%s", id);
     free(id);
