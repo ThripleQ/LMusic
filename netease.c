@@ -352,10 +352,9 @@ int netease_parse_playlist(const char *json, Song *results, int max) {
                 snprintf(s->aux_label, sizeof(s->aux_label), "网易云");
                 s->artist[0] = '\0';
                 s->album[0] = '\0';
-                char *pid = json_str(p, "id");
-                if (pid) {
-                    snprintf(s->id, sizeof(s->id), "%s", pid);
-                    free(pid);
+                long long pid = json_int(p, "id");
+                if (pid > 0) {
+                    snprintf(s->id, sizeof(s->id), "%lld", pid);
                 }
                 char *pname = json_str(p, "name");
                 if (pname) {
@@ -483,10 +482,9 @@ int netease_user_playlist(const char *uid, Song *results, int max) {
             if (end - p > 10) {
                 Song *s = &results[count];
                 s->source = SRC_NETEASE;
-                char *pid = json_str(p, "id");
-                if (pid) {
-                    snprintf(s->id, sizeof(s->id), "%s", pid);
-                    free(pid);
+                long long pid = json_int(p, "id");
+                if (pid > 0) {
+                    snprintf(s->id, sizeof(s->id), "%lld", pid);
                 }
                 char *pname = json_str(p, "name");
                 if (pname) {

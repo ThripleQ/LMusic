@@ -1362,6 +1362,9 @@ input:
   } else if (song_sel == 3) {
    netease_submode = 4;
    start_loading("netease-cli playlist 3778678 2>/dev/null", "\u266a 加载热歌榜...");
+  } else if (song_sel == 4) {
+   netease_submode = 5;
+   start_loading("netease-cli playlists 2>/dev/null", "💿 加载收藏歌单...");
   }
   break;
  }

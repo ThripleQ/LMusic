@@ -245,6 +245,78 @@ func main() {
 		}
 		fmt.Printf("{\"code\":%.0f,\"body\":%s}\n", code, string(body))
 
+case "playlists": {
+	accountSvc := service.UserAccountService{}
+	_, acctBody := accountSvc.AccountInfo()
+	var acctData map[string]interface{}
+	if err := json.Unmarshal(acctBody, &acctData); err != nil {
+		die(fmt.Sprintf("parse account failed: %v", err))
+	}
+	uid := int64(0)
+	if acct, ok := acctData["account"].(map[string]interface{}); ok {
+		if id, ok := acct["id"].(float64); ok {
+			uid = int64(id)
+		}
+	}
+	if uid == 0 {
+		die("failed to get uid, need login first")
+	}
+	svc := service.UserPlaylistService{Uid: fmt.Sprintf("%d", uid), Limit: "100", Offset: "0"}
+	_, body := svc.UserPlaylist()
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		fmt.Println(string(body))
+		return
+	}
+	playlistRaw, ok := raw["playlist"].([]interface{})
+	if !ok {
+		fmt.Println(string(body))
+		return
+	}
+	type plItem struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	var items []plItem
+	for _, p := range playlistRaw {
+		if pm, ok := p.(map[string]interface{}); ok {
+			var item plItem
+			if id, ok := pm["id"].(float64); ok { item.ID = int64(id) }
+			if name, ok := pm["name"].(string); ok { item.Name = name }
+			if item.ID > 0 { items = append(items, item) }
+		}
+	}
+	out := map[string]interface{}{"code": 200, "playlists": items}
+	b, _ := json.Marshal(out)
+	fmt.Println(string(b))
+}
+
+	case "playlist-tracks": {
+	if len(os.Args) < 3 {
+		die("usage: netease-cli playlist-tracks <id>")
+	}
+	svc := service.PlaylistDetailService{Id: os.Args[2], S: "0"}
+	_, body := svc.PlaylistDetail()
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		fmt.Println(string(body))
+		return
+	}
+	pl, ok := raw["playlist"].(map[string]interface{})
+	if !ok {
+		fmt.Println(string(body))
+		return
+	}
+	tracks, ok := pl["tracks"].([]interface{})
+	if !ok {
+		fmt.Println(string(body))
+		return
+	}
+	out := map[string]interface{}{"code": 200, "result": map[string]interface{}{"songs": tracks}}
+	b, _ := json.Marshal(out)
+	fmt.Println(string(b))
+}
+
 	default:
 		fmt.Fprintf(os.Stderr, "unknown cmd: %s\n", cmd)
 		os.Exit(1)
