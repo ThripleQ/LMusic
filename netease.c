@@ -212,6 +212,21 @@ static char *album_name(const char *song_json) {
 
 // ── 歌曲解析 ──────────────────────────────────────────────
 
+
+// 解码字符串中的 \uXXXX 转义（如 \u0026 → &）
+static void unescape_unicode(char *s) {
+    char *r = s, *w = s;
+    while (*r) {
+        if (r[0] == '\\' && r[1] == 'u' && isxdigit(r[2]) && isxdigit(r[3]) && isxdigit(r[4]) && isxdigit(r[5])) {
+            char hex[5] = {r[2], r[3], r[4], r[5], '\0'};
+            unsigned long cp = strtoul(hex, NULL, 16);
+            if (cp < 0x80) { *w++ = (char)cp; r += 6; }
+            else if (cp < 0x800) { *w++ = (char)(0xC0 | (cp >> 6)); *w++ = (char)(0x80 | (cp & 0x3F)); r += 6; }
+            else { *w++ = (char)(0xE0 | (cp >> 12)); *w++ = (char)(0x80 | ((cp >> 6) & 0x3F)); *w++ = (char)(0x80 | (cp & 0x3F)); r += 6; }
+        } else { *w++ = *r++; }
+    }
+    *w = '\0';
+}
 static int parse_song(const char *song_json, Song *s) {
     s->source = SRC_NETEASE;
 
@@ -238,14 +253,17 @@ static int parse_song(const char *song_json, Song *s) {
 
     char *title = song_title(song_json);
     snprintf(s->title, sizeof(s->title), "%s", title ? title : "");
+    if (s->title[0]) unescape_unicode(s->title);
     free(title);
 
     char *artist = artist_name(song_json);
     snprintf(s->artist, sizeof(s->artist), "%s", artist ? artist : "");
+    if (s->artist[0]) unescape_unicode(s->artist);
     free(artist);
 
     char *album = album_name(song_json);
     snprintf(s->album, sizeof(s->album), "%s", album ? album : "");
+    if (s->album[0]) unescape_unicode(s->album);
     free(album);
 
     s->duration_sec = (int)(json_int(song_json, "dt") / 1000);
