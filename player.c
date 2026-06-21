@@ -1698,11 +1698,14 @@ input:
     matched++;
     if (matched == song_scroll + (ev.y - brow) + 1) {
      song_sel = matched - 1;
-     // 双击检测：同秒同行第二次按下算双击
-     static time_t last_mclick = 0;
+     // 双击检测：800ms 内同行第二次按下算双击
+     static struct timespec last_mclick = {0, 0};
      static int last_mrow = -1;
-     int is_dbl = (last_mrow == ev.y && time(NULL) - last_mclick < 1);
-     last_mclick = time(NULL);
+     struct timespec now_t;
+     clock_gettime(CLOCK_MONOTONIC, &now_t);
+     long long ms = (now_t.tv_sec - last_mclick.tv_sec) * 1000LL + (now_t.tv_nsec - last_mclick.tv_nsec) / 1000000LL;
+     int is_dbl = (last_mrow == ev.y && ms > 0 && ms < 800);
+     last_mclick = now_t;
      last_mrow = ev.y;
      if (is_dbl) {
       int cnt2 = 0, target2 = -1;
