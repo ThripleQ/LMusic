@@ -684,14 +684,14 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  snprintf(dur_str, sizeof(dur_str), "%d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
 
  char marker = ' ';
- if (active_panel == 1 && song_idx == song_sel) marker = '>';
+ if (active_panel == 1 && song_idx + song_scroll == song_sel) marker = '>';
  else if (i == pi) marker = '>';
 
  int line_row = 2 + song_idx;
  int dur_w = dur_str[0] ? (int)strlen(dur_str) + 1 : 0;
  int max_w = col_w - (left_w + 2) - dur_w - 2; // 可用显示列
  int line_w = display_width(line);
- int is_sel = (active_panel == 1 && song_idx == song_sel);
+ int is_sel = (active_panel == 1 && song_idx + song_scroll == song_sel);
 
  // 构建显示字符串（跑马灯 or 截断）
  char disp[320];
