@@ -668,10 +668,14 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   if (new_idx != scroll_idx) { scroll_pos = 0; scroll_timer = 0; scroll_idx = new_idx; }
  }
 
+ int matched = 0;
  for (int i = 0; i < cur_total && song_idx < list_rows; i++) {
  // 只显示属于当前目录的
  if (strcmp(cur_list[i].aux_label, sdir) != 0)
- continue;
+  continue;
+ matched++;
+ // 跳过已滚动出视野的
+ if (matched <= song_scroll) continue;
 
  char line[320];
  if (cur_list[i].artist[0])
@@ -1165,7 +1169,7 @@ input:
  if (cnt == 0) break;
  if (song_sel < cnt - 1) song_sel++;
  int lr2 = getmaxy(stdscr) - 4;
- if (song_sel >= song_scroll + lr2) song_scroll = song_sel - lr2 + 1;
+ if (song_sel >= song_scroll + lr2) { song_scroll = song_sel - lr2 + 1; fprintf(stderr, "[SCROLL] sel=%d scroll=%d lr2=%d\n", song_sel, song_scroll, lr2); }
  }
  break;
 
