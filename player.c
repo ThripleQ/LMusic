@@ -1696,6 +1696,34 @@ input:
     matched++;
     if (matched == song_scroll + (ev.y - brow) + 1) {
      song_sel = matched - 1;
+     // 双击：播放选中歌曲
+     if (ev.bstate & BUTTON1_DOUBLE_CLICKED) {
+      int cnt2 = 0, target2 = -1;
+      Song *songs2 = netease_mode ? ne_playlist : playlist;
+      int total2 = netease_mode ? ne_count : atomic_load(&song_count);
+      for (int j = 0; j < total2; j++) {
+       if (strcmp(songs2[j].aux_label, sdir) == 0) {
+        if (cnt2 == song_sel) { target2 = j; break; }
+        cnt2++;
+       }
+      }
+      if (target2 >= 0) {
+       if (netease_mode) {
+        char url2[512];
+        if (netease_song_url(songs2[target2].id, url2, sizeof(url2)) == 0) {
+         strncpy(g_state.pending_path, url2, sizeof(g_state.pending_path)-1);
+         atomic_store(&play_index, target2);
+         atomic_store(&g_state.seek_frame, -1);
+         atomic_store(&g_state.command, 1);
+        }
+       } else {
+        strncpy(g_state.pending_path, songs2[target2].id, sizeof(g_state.pending_path)-1);
+        atomic_store(&play_index, target2);
+        atomic_store(&g_state.seek_frame, -1);
+        atomic_store(&g_state.command, 1);
+       }
+      }
+     }
      break;
     }
    }
