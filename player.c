@@ -1320,16 +1320,15 @@ input:
  }
  break;
 
- case 'r': case 'R':
+ case 'b': case 'B':
  if (netease_mode && netease_submode > 0) {
-  // 网易云子模式下，r 回到菜单
   load_netease_menu();
   netease_mode = 1;
   song_sel = 0;
- } else {
-  atomic_store(&loop_mode, (atomic_load(&loop_mode) + 1) % 3);
  }
  break;
+
+ case 'r': case 'R':
 
  case 'l': case 'L':
   if (!qr_logging_in) {
