@@ -1266,12 +1266,12 @@ int main(int argc, char *argv[]) {
  init_pair(7, COLOR_RED, COLOR_BLUE);     // 首页：亮红色
  cbreak();
  noecho();
+ set_escdelay(0);
  keypad(stdscr, TRUE);
  mousemask(BUTTON1_PRESSED | BUTTON3_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
 
  curs_set(0);
  timeout(30);
- set_escdelay(0);
 
  int selected = init_dir, running = 1, col_w;
 
@@ -1697,16 +1697,9 @@ input:
    else if (active_panel == 0) { if (dir_scroll < dir_count - list_rows) dir_scroll++; }
    break;
   }
-  // ── 右键 = ESC ──
+  // ── 右键 → push ESC, 走 case 27 统一逻辑 ──
   if (ev.bstate & BUTTON3_PRESSED) {
-   help_dismissed = 1;
-   if (netease_mode && netease_submode > 0) {
-    load_netease_menu();
-    netease_mode = 1;
-    song_sel = 0;
-   } else {
-    quitting = 0;
-   }
+   ungetch(27);
    break;
   }
 
