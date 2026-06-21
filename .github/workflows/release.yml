@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libavformat-dev libavcodec-dev \
+          libavutil-dev libswresample-dev libasound2-dev libncurses-dev
+    
+    - name: Build
+      run: make
+    
+    - name: Upload binary
+      uses: softprops/action-gh-release@v2
+      with:
+        files: lmusic
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
