@@ -334,7 +334,46 @@ int netease_parse_playlist(const char *json, Song *results, int max) {
         count = netease_parse_search(json, results, max);
     }
     return count;
+}int netease_parse_playlists(const char *json, Song *results, int max) {
+    if (!json || !json[0]) return 0;
+    int count = 0;
+    // 从 playlists 数组解析歌单列表（netease-cli playlists 输出格式）
+    const char *pl = json_obj_start(json, "playlists");
+    if (pl && *pl == '[') {
+        const char *p = pl + 1;
+        while (*p && count < max) {
+            while (*p && *p != '{' && *p != ']') p++;
+            if (*p == ']') break;
+            const char *end = json_match(p);
+            if (end - p > 10) {
+                Song *s = &results[count];
+                s->source = SRC_NETEASE;
+                s->duration_sec = 0;
+                snprintf(s->aux_label, sizeof(s->aux_label), "网易云");
+                s->artist[0] = '\0';
+                s->album[0] = '\0';
+                char *pid = json_str(p, "id");
+                if (pid) {
+                    snprintf(s->id, sizeof(s->id), "%s", pid);
+                    free(pid);
+                }
+                char *pname = json_str(p, "name");
+                if (pname) {
+                    unescape_unicode(pname);
+                    snprintf(s->title, sizeof(s->title), "%s", pname);
+                    free(pname);
+                } else {
+                    snprintf(s->title, sizeof(s->title), "未命名歌单");
+                }
+                count++;
+            }
+            p = end;
+        }
+    }
+    return count;
 }
+
+
 
 int netease_search(const char *keyword, Song *results, int max) {
     char *json = run_cli("%s search %s", NETEASE_CLI, keyword);

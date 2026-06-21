@@ -512,7 +512,7 @@ static int format_time(char *buf, size_t sz, snd_pcm_uframes_t frames, int rate)
 
 // 加载网易云菜单（虚拟歌曲列表）
 static void load_netease_menu(void) {
-    ne_count = 4;
+    ne_count = 5;
     for (int i = 0; i < 4; i++) {
         ne_playlist[i].source = SRC_NETEASE;
         ne_playlist[i].artist[0] = '\0';
@@ -527,6 +527,10 @@ static void load_netease_menu(void) {
     snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "每日推荐");
     snprintf(ne_playlist[3].id, sizeof(ne_playlist[3].id), "__hot__");
     snprintf(ne_playlist[3].title, sizeof(ne_playlist[3].title), "热歌榜");
+    ne_count = 5;
+    snprintf(ne_playlist[4].id, sizeof(ne_playlist[4].id), "__playlists__");
+    snprintf(ne_playlist[4].title, sizeof(ne_playlist[4].title), "收藏歌单");
+    snprintf(ne_playlist[4].aux_label, sizeof(ne_playlist[4].aux_label), "网易云");
     netease_submode = 0;
 }
 
@@ -601,18 +605,22 @@ static void start_loading(const char *cmd, const char *msg) {
 
 static void process_loading_result(void) {
     loading_buf[loading_len] = 0;
-    Song results[MAX_SONGS];
     int n = 0;
     if (netease_submode == 1 || netease_submode == 2)
-        n = netease_parse_search(loading_buf, results, MAX_SONGS);
+        n = netease_parse_search(loading_buf, ne_playlist, MAX_SONGS);
     else if (netease_submode == 3)
-        n = netease_parse_daily(loading_buf, results, MAX_SONGS);
+        n = netease_parse_daily(loading_buf, ne_playlist, MAX_SONGS);
     else if (netease_submode == 4)
-        n = netease_parse_playlist(loading_buf, results, MAX_SONGS);
-    if (n == 0) { load_netease_menu(); return; }
-    ne_count = n;
-    for (int i = 0; i < n; i++) ne_playlist[i] = results[i];
-    netease_mode = 1; song_sel = 0;
+        n = netease_parse_playlist(loading_buf, ne_playlist, MAX_SONGS);
+    else if (netease_submode == 5)
+        n = netease_parse_playlists(loading_buf, ne_playlist, MAX_SONGS);
+    else if (netease_submode == 6)
+        n = netease_parse_search(loading_buf, ne_playlist, MAX_SONGS);
+    if (n > 0) {
+        ne_count = n; song_sel = 0; netease_mode = 1;
+    } else {
+        load_netease_menu();
+    }
 }
 
 static void draw_ui(WINDOW *win, int selected, int col_w) {
@@ -1360,6 +1368,23 @@ input:
 
  // ── 播放网易云歌曲 ──
  if (selected == netease_vdir_idx && netease_submode > 0) {
+  // 歌单列表模式（submode 5）：选中歌单 → 加载曲目
+  if (netease_submode == 5) {
+   int cnt = 0, target = -1;
+   for (int i = 0; i < ne_count; i++) {
+    if (strcmp(ne_playlist[i].aux_label, "网易云") == 0) {
+     if (cnt == song_sel) { target = i; break; }
+     cnt++;
+    }
+   }
+   if (target >= 0 && ne_playlist[target].id[0]) {
+    netease_submode = 6;
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "netease-cli playlist-tracks %s 2>/dev/null", ne_playlist[target].id);
+    start_loading(cmd, "︧e 加载歌单曲目...");
+   }
+   break;
+  }
   int cnt = 0, target = -1;
   for (int i = 0; i < ne_count; i++) {
    if (strcmp(ne_playlist[i].aux_label, "网易云") == 0) {
