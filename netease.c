@@ -247,20 +247,17 @@ int netease_song_url(const char *id, char *url, int url_len) {
 
     int ret = -1;
     // data 是数组 [{id:..., url:"..."}]
-    const char *u = strstr(json, "\"url\"");
+    // 找 "url":" 防止命中 urlSource
+    const char *u = strstr(json, "\"url\":\"");
     if (u) {
-        u += 6;
-        while (*u && (*u == ':' || *u == ' ')) u++;
-        if (*u == '"') {
-            u++;
-            const char *end = strchr(u, '"');
-            if (end) {
-                size_t len = end - u;
-                if (len > 0 && len < (size_t)url_len) {
-                    memcpy(url, u, len);
-                    url[len] = '\0';
-                    ret = 0;
-                }
+        u += 7;
+        const char *end = strchr(u, '"');
+        if (end) {
+            size_t len = end - u;
+            if (len > 0 && len < (size_t)url_len) {
+                memcpy(url, u, len);
+                url[len] = '\0';
+                ret = 0;
             }
         }
     }

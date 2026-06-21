@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2
+CFLAGS = -O2 -D_GNU_SOURCE
 LIBS = -lasound -lncurses -lpthread -lavformat -lavcodec -lavutil -lswresample
 PREFIX ?= /usr/local
 

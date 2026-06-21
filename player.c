@@ -13,6 +13,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <time.h>
+#include <wchar.h>
 #include <alsa/asoundlib.h>
 #include <ncurses.h>
 #include <signal.h>
@@ -98,6 +99,19 @@ static int qr_next_check = 0;          // 下次轮询时间
 // ── 目录浏览 ──
 static char dirs[64][512];
 static int dir_count = 0;
+
+// ── 跑马灯 ──
+static int scroll_pos = 0;           // 滚动偏移（列）
+static int scroll_idx = -1;          // 当前滚动的歌曲索引
+static int scroll_timer = 0;         // 帧计数器
+
+// 返回 UTF-8 字符串的终端显示宽度（列）
+static int display_width(const char *s) {
+    wchar_t wcs[512];
+    int n = mbstowcs(wcs, s, 512);
+    if (n <= 0) return (int)strlen(s);
+    return wcswidth(wcs, n);
+}
 
 // ── 扫描本地音频文件 ──────────────────────────────────────
 static const char *audio_exts[] = {
@@ -616,12 +630,29 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
 
  int song_idx = 0;
- for (int i = 0; i < cur_total && song_idx < list_rows; i++) {
- // 只显示属于当前目录的
+
+ // 右面板目录名
  const char *sdir = strrchr(dirs[selected], '/');
  sdir = sdir ? sdir + 1 : dirs[selected];
- if (strcmp(playlist[i].aux_label, sdir) != 0 &&
- (playlist[i].aux_label[0] && strcmp(cur_list[i].aux_label, sdir) != 0))
+
+ // 更新滚动状态（在循环外，避免被后续迭代覆盖）
+ if (active_panel != 1) {
+  scroll_pos = 0; scroll_timer = 0; scroll_idx = -1;
+ } else {
+  int cnt = 0;
+  int new_idx = -1;
+  for (int t = 0; t < cur_total && cnt <= song_sel; t++) {
+   if (strcmp(cur_list[t].aux_label, sdir) == 0) {
+    if (cnt == song_sel) { new_idx = t; break; }
+    cnt++;
+   }
+  }
+  if (new_idx != scroll_idx) { scroll_pos = 0; scroll_timer = 0; scroll_idx = new_idx; }
+ }
+
+ for (int i = 0; i < cur_total && song_idx < list_rows; i++) {
+ // 只显示属于当前目录的
+ if (strcmp(cur_list[i].aux_label, sdir) != 0)
  continue;
 
  char line[320];
@@ -639,15 +670,74 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  else if (i == pi) marker = '>';
 
  int line_row = 2 + song_idx;
+ int dur_w = dur_str[0] ? (int)strlen(dur_str) + 1 : 0;
+ int max_w = col_w - (left_w + 2) - dur_w - 2; // 可用显示列
+ int line_w = display_width(line);
+ int is_sel = (active_panel == 1 && song_idx == song_sel);
 
- if (active_panel == 1 && song_idx == song_sel) {
+ // 构建显示字符串（跑马灯 or 截断）
+ char disp[320];
+ int trim = 0;
+ if (is_sel && line_w > max_w) {
+  // 跑马灯：按列偏移截取
+  scroll_timer++;
+  if (scroll_timer >= 3) {  // 每 3 帧 ~90ms 走 1 列
+   scroll_timer = 0;
+   scroll_pos++;
+   // 末尾留 4 列缓冲后回 0
+   if (scroll_pos > line_w + 4) scroll_pos = 0;
+  }
+  // 用宽字符截取
+  wchar_t wcs[512];
+  int nw = mbstowcs(wcs, line, 512);
+  if (nw > 0) {
+   int col = 0, wpos = 0;
+   for (int ci = 0; ci < nw; ci++) {
+    int cw = wcwidth(wcs[ci]);
+    if (cw < 1) cw = 1;
+    if (col + cw <= scroll_pos) { col += cw; continue; }
+    if (col >= scroll_pos + max_w) break;
+    // 写字符
+    char mb[8];
+    int mb_len = wctomb(mb, wcs[ci]);
+    if (mb_len > 0) { memcpy(disp + trim, mb, mb_len); trim += mb_len; }
+    col += cw;
+   }
+  }
+  disp[trim] = '\0';
+  trim = 0;
+ } else if (line_w > max_w) {
+  // 未选中：截断
+  wchar_t wcs[512];
+  int nw = mbstowcs(wcs, line, 512);
+  if (nw > 0) {
+   int col = 0;
+   for (int ci = 0; ci < nw; ci++) {
+    int cw = wcwidth(wcs[ci]);
+    if (cw < 1) cw = 1;
+    if (col + cw > max_w - 3) break;
+    char mb[8];
+    int mb_len = wctomb(mb, wcs[ci]);
+    if (mb_len > 0) { memcpy(disp + trim, mb, mb_len); trim += mb_len; }
+    col += cw;
+   }
+   memcpy(disp + trim, "...", 4);
+   trim += 3;
+  } else {
+   trim = snprintf(disp, sizeof(disp), "%.*s...", max_w - 3 < 0 ? 0 : max_w - 3, line);
+  }
+ } else {
+  trim = snprintf(disp, sizeof(disp), "%s", line);
+ }
+
+ if (is_sel) {
  wattron(win, COLOR_PAIR(2) | A_BOLD);
- mvwprintw(win, line_row, left_w + 2, "%c %s", marker, line);
+ mvwprintw(win, line_row, left_w + 2, "%c %s", marker, disp);
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else if (i == pi) {
- mvwprintw(win, line_row, left_w + 2, "%c %s", marker, line);
+ mvwprintw(win, line_row, left_w + 2, "%c %s", marker, disp);
  } else {
- mvwprintw(win, line_row, left_w + 2, "  %s", line);
+ mvwprintw(win, line_row, left_w + 2, "  %s", disp);
  }
  if (dur_str[0])
  mvwprintw(win, line_row, col_w - (int)strlen(dur_str) - 2, "%s", dur_str);
