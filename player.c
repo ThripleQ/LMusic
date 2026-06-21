@@ -1127,7 +1127,7 @@ input:
  case KEY_UP:
  if (active_panel == 0) {
  if (dir_count == 0) break;
- selected = (selected - 1 + dir_count) % dir_count;
+ if (selected > 0) selected--;
  song_sel = 0;
  song_scroll = 0;
  if (selected < dir_scroll) dir_scroll = selected;
@@ -1141,14 +1141,14 @@ input:
  for (int i = 0; i < total; i++)
   if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
- song_sel = (song_sel - 1 + cnt) % cnt;
+ if (song_sel > 0) song_sel--;
  if (song_sel < song_scroll) song_scroll = song_sel;
  }
  break;
  case KEY_DOWN:
  if (active_panel == 0) {
  if (dir_count == 0) break;
- selected = (selected + 1) % dir_count;
+ if (selected < dir_count - 1) selected++;
  song_sel = 0;
  song_scroll = 0;
  int lr = getmaxy(stdscr) - 4;
@@ -1163,7 +1163,7 @@ input:
  for (int i = 0; i < total; i++)
   if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
- song_sel = (song_sel + 1) % cnt;
+ if (song_sel < cnt - 1) song_sel++;
  int lr2 = getmaxy(stdscr) - 4;
  if (song_sel >= song_scroll + lr2) song_scroll = song_sel - lr2 + 1;
  }
