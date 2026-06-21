@@ -20,6 +20,7 @@
 #include <ncurses.h>
 #include <signal.h>
 #include <locale.h>
+#include <time.h>
 
 #include "decoder.h"
 #include "song.h"
@@ -78,6 +79,7 @@ static int dir_counts[64];
 static int active_panel = 0;
 static int quitting = 0;  // 退出确认标志
 static atomic_int play_error = 0;  // 播放失败提示
+static time_t last_play_ts = 0;  // 上次尝试播放的时间戳
 static volatile sig_atomic_t sigint_caught = 0;
 
 static void handle_sigint(int sig) { sigint_caught = 1; }
@@ -459,6 +461,7 @@ pcm = NULL; atomic_store(&g_state.state, STOPPED); atomic_store(&play_error, 1);
  sizeof(g_state.pending_path)-1);
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
+ last_play_ts = time(NULL);
  continue;
  }
  }
@@ -944,7 +947,12 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " │ %s", extra);
   mvwaddstr(win, bar_row, 0, bar_line);
   wattroff(win, COLOR_PAIR(5));
- } else if (atomic_load(&play_error)) {
+ } else if (atomic_load(&play_error) || (
+   last_play_ts > 0
+   && time(NULL) - last_play_ts <= 2
+   && atomic_load(&g_state.state) == STOPPED
+   && atomic_load(&g_state.cur_frame) == 0
+)) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   mvwprintw(win, info_row, 2, "⚠ 解码失败，可能是无权限或文件异常");
@@ -1417,6 +1425,7 @@ input:
   atomic_store(&play_index, target);
   atomic_store(&g_state.seek_frame, -1);
   atomic_store(&g_state.command, 1);
+  last_play_ts = time(NULL);
   break;
  }
 
@@ -1440,6 +1449,7 @@ input:
  sizeof(g_state.pending_path)-1);
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
+ last_play_ts = time(NULL);
  }
  break;
 
@@ -1467,6 +1477,7 @@ input:
  if (has_song) {
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
+ last_play_ts = time(NULL);
  }
  }
  }
