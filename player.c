@@ -328,8 +328,9 @@ static void *playback_thread(void *arg) {
    stream_seek(g_stream_dec, st, sr);
    g_stream_local_total = 0;
    g_decode_done = false;
-   atomic_store(&g_state.cur_frame, st);
-   atomic_store(&g_state.playback_frame, st);
+   atomic_store(&g_state.frame_offset, st);
+   atomic_store(&g_state.cur_frame, 0LL);
+   atomic_store(&g_state.playback_frame, 0LL);
    if (pcm) { snd_pcm_drop(pcm); snd_pcm_prepare(pcm); }
   }
   continue;
