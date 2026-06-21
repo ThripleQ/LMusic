@@ -614,11 +614,13 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   mvwhline(win, info_row, 0, ' ', col_w);
   char info[384];
   int il = 0;
+  // 左：文件夹名  右：歌曲名
+  mvwprintw(win, info_row, 2, "%s", playlist[pi].aux_label);
+  mvwaddstr(win, info_row, left_w, "│");
   if (playlist[pi].artist[0])
-   il += snprintf(info + il, sizeof(info) - il, "  %s - %s", playlist[pi].artist, playlist[pi].title);
+   mvwprintw(win, info_row, left_w + 2, "%s - %s", playlist[pi].artist, playlist[pi].title);
   else
-   il += snprintf(info + il, sizeof(info) - il, "  %s", playlist[pi].title);
-  mvwprintw(win, info_row, 2, "%s", info);
+   mvwprintw(win, info_row, left_w + 2, "%s", playlist[pi].title);
   wattroff(win, COLOR_PAIR(3));
 
   // ── 进度条行（黑字白底）──
