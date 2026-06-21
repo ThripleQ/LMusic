@@ -1730,7 +1730,26 @@ input:
      // 菜单项 → 一点就触发
      song_sel = clicked;
      int sel = clicked;
-     if (sel == 0) {}
+     if (sel == 0) {
+      timeout(-1); echo(); curs_set(1);
+      mvwhline(stdscr, brows - 1, 0, ' ', bcols);
+      mvwprintw(stdscr, brows - 2, 2, "搜索: ");
+      wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
+      noecho(); curs_set(0); timeout(30);
+      if (netease_search_buf[0]) {
+       char sq[256]; int si = 0;
+       for (const char *p = netease_search_buf; *p && si < 248; p++) {
+        if (isalnum((unsigned char)*p) || *p == ' ' || *p == '-' || *p == '_' ||
+            *p == '.' || *p == ',' || *p == '+' || *p == '#' || *p == '(' || *p == ')' ||
+            *p == '[' || *p == ']' || (*p & 0x80)) sq[si++] = *p;
+       }
+       sq[si] = '\0';
+       netease_submode = 1;
+       char cmd[1024];
+       snprintf(cmd, sizeof(cmd), "netease-cli search %s 2>/dev/null", sq);
+       start_loading(cmd, "搜索...");
+      }
+     }
      else if (sel == 1) { netease_submode = 2; start_loading("netease-cli liked 2>/dev/null", "红心"); }
      else if (sel == 2) { netease_submode = 3; start_loading("netease-cli recommend-songs 2>/dev/null", "推荐"); }
      else if (sel == 3) { netease_submode = 4; start_loading("netease-cli playlist 3778678 2>/dev/null", "热歌"); }
