@@ -19,6 +19,7 @@
 
 #include "decoder.h"
 #include "song.h"
+#include "netease.h"
 
 //#define DEBUG
 #ifdef DEBUG
@@ -78,6 +79,14 @@ static void handle_sigint(int sig) { sigint_caught = 1; }
 static int song_sel = 0;  // 右面板选中的歌曲在过滤列表中的序号  // 每个目录的歌曲数
 static atomic_int play_index = -1;
 static atomic_int loop_mode = 0;
+
+// ── 网易云状态 ──
+static int netease_mode = 0;           // 当前选中目录是否为网易云
+static int netease_vdir_idx = -1;      // 网易云虚拟目录索引
+static int netease_submode = 0;        // 0=菜单 1=搜索结果 2=歌单 3=日推
+static char netease_search_buf[256];   // 搜索关键词
+static Song ne_playlist[MAX_SONGS];    // 网易云独立歌曲列表
+static int ne_count = 0;               // 网易云歌曲数
 
 // ── 目录浏览 ──
 static char dirs[64][512];
@@ -460,12 +469,79 @@ static int format_time(char *buf, size_t sz, snd_pcm_uframes_t frames, int rate)
  return snprintf(buf, sz, "%02d:%02d", sec / 60, sec % 60);
 }
 
+// ── 网易云数据加载 ────────────────────────────────────
+
+// 加载网易云菜单（虚拟歌曲列表）
+static void load_netease_menu(void) {
+    ne_count = 3;
+    for (int i = 0; i < 3; i++) {
+        ne_playlist[i].source = SRC_NETEASE;
+        ne_playlist[i].artist[0] = '\0';
+        ne_playlist[i].album[0] = '\0';
+        ne_playlist[i].duration_sec = 0;
+        snprintf(ne_playlist[i].aux_label, sizeof(ne_playlist[i].aux_label), "网易云");
+    }
+    snprintf(ne_playlist[0].id, sizeof(ne_playlist[0].id), "__search__");
+    snprintf(ne_playlist[0].title, sizeof(ne_playlist[0].title), "🔍 搜索");
+    snprintf(ne_playlist[1].id, sizeof(ne_playlist[1].id), "__daily__");
+    snprintf(ne_playlist[1].title, sizeof(ne_playlist[1].title), "每日推荐");
+    snprintf(ne_playlist[2].id, sizeof(ne_playlist[2].id), "__hot__");
+    snprintf(ne_playlist[2].title, sizeof(ne_playlist[2].title), "热歌榜");
+    netease_submode = 0;
+}
+
+// 加载搜索结果
+static void load_netease_search(const char *kw) {
+    Song results[MAX_SONGS];
+    int n = netease_search(kw, results, MAX_SONGS);
+    if (n == 0) {
+        // 无结果，保持菜单
+        load_netease_menu();
+        return;
+    }
+    ne_count = n;
+    for (int i = 0; i < n; i++)
+        ne_playlist[i] = results[i];
+    netease_submode = 1;
+    netease_mode = 1;
+    song_sel = 0;
+}
+
+// 加载歌单
+static void load_netease_playlist(const char *id) {
+    Song results[MAX_SONGS];
+    int n = netease_playlist_detail(id, results, MAX_SONGS);
+    if (n == 0) return;
+    ne_count = n;
+    for (int i = 0; i < n; i++)
+        ne_playlist[i] = results[i];
+    netease_submode = 2;
+    netease_mode = 1;
+    song_sel = 0;
+}
+
+// 加载每日推荐
+static void load_netease_daily(void) {
+    Song results[MAX_SONGS];
+    int n = netease_recommend_songs(results, MAX_SONGS);
+    if (n == 0) return;
+    ne_count = n;
+    for (int i = 0; i < n; i++)
+        ne_playlist[i] = results[i];
+    netease_submode = 3;
+    netease_mode = 1;
+    song_sel = 0;
+}
+
 static void draw_ui(WINDOW *win, int selected, int col_w) {
  werase(win);
 
+ // 当前播放列表（本地 or 网易云）
+ Song *cur_list = netease_mode ? ne_playlist : playlist;
+ int cur_total = netease_mode ? ne_count : atomic_load(&song_count);
+
  int state = atomic_load(&g_state.state);
  int pi = atomic_load(&play_index);
- int song_n = atomic_load(&song_count);
 
  // ── 尺寸计算 ──
  int rows = getmaxy(win);
@@ -506,7 +582,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else {
  int has_songs = 0;
- for (int i = 0; i < song_n; i++) {
+ for (int i = 0; i < cur_total; i++) {
  if (strcmp(playlist[i].aux_label, dname) == 0) { has_songs = 1; break; }
  }
  wattron(win, has_songs ? A_NORMAL : A_DIM);
@@ -533,23 +609,23 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
 
  int song_idx = 0;
- for (int i = 0; i < song_n && song_idx < list_rows; i++) {
+ for (int i = 0; i < cur_total && song_idx < list_rows; i++) {
  // 只显示属于当前目录的
  const char *sdir = strrchr(dirs[selected], '/');
  sdir = sdir ? sdir + 1 : dirs[selected];
  if (strcmp(playlist[i].aux_label, sdir) != 0 &&
- (playlist[i].aux_label[0] && strcmp(playlist[i].aux_label, sdir) != 0))
+ (playlist[i].aux_label[0] && strcmp(cur_list[i].aux_label, sdir) != 0))
  continue;
 
  char line[320];
- if (playlist[i].artist[0])
- snprintf(line, sizeof(line), "%s - %s", playlist[i].artist, playlist[i].title);
+ if (cur_list[i].artist[0])
+ snprintf(line, sizeof(line), "%s - %s", cur_list[i].artist, cur_list[i].title);
  else
- strncpy(line, playlist[i].title, sizeof(line)-1);
+ strncpy(line, cur_list[i].title, sizeof(line)-1);
 
  char dur_str[16] = "";
- if (playlist[i].duration_sec > 0)
- snprintf(dur_str, sizeof(dur_str), "%d:%02d", playlist[i].duration_sec/60, playlist[i].duration_sec%60);
+ if (cur_list[i].duration_sec > 0)
+ snprintf(dur_str, sizeof(dur_str), "%d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
 
  char marker = ' ';
  if (active_panel == 1 && song_idx == song_sel) marker = '>';
@@ -596,17 +672,17 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattron(win, COLOR_PAIR(3));
   mvwprintw(win, bar_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
   wattroff(win, COLOR_PAIR(3));
- } else if (pi >= 0 && pi < song_n) {
+ } else if (pi >= 0 && pi < cur_total) {
   // ── 信息行（白字蓝底，无状态图标）──
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   // 左：文件夹名  右：歌曲名
-  mvwprintw(win, info_row, 2, "%s", playlist[pi].aux_label);
+  mvwprintw(win, info_row, 2, "%s", cur_list[pi].aux_label);
   mvwaddstr(win, info_row, left_w, "│");
-  if (playlist[pi].artist[0])
-   mvwprintw(win, info_row, left_w + 2, "%s - %s", playlist[pi].artist, playlist[pi].title);
+  if (cur_list[pi].artist[0])
+   mvwprintw(win, info_row, left_w + 2, "%s - %s", cur_list[pi].artist, cur_list[pi].title);
   else
-   mvwprintw(win, info_row, left_w + 2, "%s", playlist[pi].title);
+   mvwprintw(win, info_row, left_w + 2, "%s", cur_list[pi].title);
   wattroff(win, COLOR_PAIR(3));
 
   // ── 进度条行（黑字白底）──
@@ -827,6 +903,10 @@ int main(int argc, char *argv[]) {
         if (has_songs) { init_dir = d; break; }
     }
 
+    // 添加网易云虚拟目录
+    netease_vdir_idx = dir_count;
+    snprintf(dirs[dir_count++], sizeof(dirs[0]), "网易云");
+
     if (atomic_load(&song_count) == 0) {
         fprintf(stderr, "提示: 没有找到音频文件\n");
     }
@@ -866,6 +946,13 @@ int main(int argc, char *argv[]) {
  refresh();
  goto input;
  }
+ // 网易云目录切换：选中时自动加载菜单
+ if (selected == netease_vdir_idx && !netease_mode) {
+  load_netease_menu();
+  netease_mode = 1;
+ } else if (selected != netease_vdir_idx && netease_mode) {
+  netease_mode = 0;
+ }
  draw_ui(stdscr, selected, col_w);
 
 input:
@@ -885,18 +972,18 @@ input:
 
  case KEY_UP:
  if (active_panel == 0) {
- // 左面板：切换目录
  if (dir_count == 0) break;
  selected = (selected - 1 + dir_count) % dir_count;
  song_sel = 0;
  } else {
- // 右面板：从选中目录过滤歌曲
  if (dir_count == 0) break;
  const char *dname = strrchr(dirs[selected], '/');
  dname = dname ? dname + 1 : dirs[selected];
+ Song *songs = netease_mode ? ne_playlist : playlist;
+ int total = netease_mode ? ne_count : atomic_load(&song_count);
  int cnt = 0;
- for (int i = 0; i < atomic_load(&song_count); i++)
- if (strcmp(playlist[i].aux_label, dname) == 0) cnt++;
+ for (int i = 0; i < total; i++)
+  if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
  song_sel = (song_sel - 1 + cnt) % cnt;
  }
@@ -910,9 +997,11 @@ input:
  if (dir_count == 0) break;
  const char *dname = strrchr(dirs[selected], '/');
  dname = dname ? dname + 1 : dirs[selected];
+ Song *songs = netease_mode ? ne_playlist : playlist;
+ int total = netease_mode ? ne_count : atomic_load(&song_count);
  int cnt = 0;
- for (int i = 0; i < atomic_load(&song_count); i++)
- if (strcmp(playlist[i].aux_label, dname) == 0) cnt++;
+ for (int i = 0; i < total; i++)
+  if (strcmp(songs[i].aux_label, dname) == 0) cnt++;
  if (cnt == 0) break;
  song_sel = (song_sel + 1) % cnt;
  }
@@ -924,21 +1013,70 @@ input:
 
  case '\n': case '\r':
  if (active_panel == 0 || dir_count == 0) break;
- // 在右面板：播放选中的歌曲
+
+ // ── 网易云特殊处理 ──
+ if (selected == netease_vdir_idx && netease_submode == 0) {
+  // 菜单模式
+  if (song_sel == 0) {
+   // 搜索
+   echo(); nocbreak(); curs_set(1);
+   mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
+   mvwprintw(stdscr, getmaxy(stdscr)-1, 2, "搜索: ");
+   wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
+   noecho(); cbreak(); curs_set(0);
+   if (netease_search_buf[0])
+    load_netease_search(netease_search_buf);
+  } else if (song_sel == 1) {
+   load_netease_daily();
+  } else if (song_sel == 2) {
+   load_netease_playlist("3778678");  // 热歌榜
+  }
+  break;
+ }
+
+ // ── 播放网易云歌曲 ──
+ if (selected == netease_vdir_idx && netease_submode > 0) {
+  const char *dname = dirs[selected];
+  int cnt = 0, target = -1;
+  for (int i = 0; i < atomic_load(&song_count); i++) {
+   if (strcmp(playlist[i].aux_label, dname) == 0) {
+    if (cnt == song_sel) { target = i; break; }
+    cnt++;
+   }
+  }
+  if (target < 0) break;
+  char url[512];
+  if (netease_song_url(playlist[target].id, url, sizeof(url)) != 0) {
+   // 需要登录
+   mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
+   mvwprintw(stdscr, getmaxy(stdscr)-1, 2, "⚠ 需要登录网易云，按 l 扫码登录");
+   wrefresh(stdscr);
+   break;
+  }
+  strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
+  atomic_store(&play_index, target);
+  atomic_store(&g_state.seek_frame, -1);
+  atomic_store(&g_state.command, 1);
+  break;
+ }
+
+ // ── 本地歌曲播放 ──
  {
  const char *dname = strrchr(dirs[selected], '/');
  dname = dname ? dname + 1 : dirs[selected];
+ int total = netease_mode ? ne_count : atomic_load(&song_count);
+ Song *songs = netease_mode ? ne_playlist : playlist;
  int cnt = 0;
  int target = -1;
- for (int i = 0; i < atomic_load(&song_count); i++) {
- if (strcmp(playlist[i].aux_label, dname) == 0) {
+ for (int i = 0; i < total; i++) {
+ if (strcmp(songs[i].aux_label, dname) == 0) {
  if (cnt == song_sel) { target = i; break; }
  cnt++;
  }
  }
  if (target < 0) break;
  atomic_store(&play_index, target);
- strncpy(g_state.pending_path, playlist[target].id,
+ strncpy(g_state.pending_path, songs[target].id,
  sizeof(g_state.pending_path)-1);
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
@@ -1017,7 +1155,38 @@ input:
  break;
 
  case 'r': case 'R':
- atomic_store(&loop_mode, (atomic_load(&loop_mode) + 1) % 3);
+ if (netease_mode && netease_submode > 0) {
+  // 网易云子模式下，r 回到菜单
+  load_netease_menu();
+  netease_mode = 1;
+  song_sel = 0;
+ } else {
+  atomic_store(&loop_mode, (atomic_load(&loop_mode) + 1) % 3);
+ }
+ break;
+
+ case 'l': case 'L':  // 网易云扫码登录
+ {
+  char url[512], unikey[128];
+  if (netease_qr_get_key(url, sizeof(url), unikey, sizeof(unikey)) == 0) {
+   // 终端渲染二维码
+   char cmd[1024];
+   snprintf(cmd, sizeof(cmd), "echo '%s' | qrencode -t ANSIUTF8 -m 1 -s 2", url);
+   endwin();
+   printf("\n请用网易云 App 扫描:\n\n");
+   system(cmd);
+   printf("\n等待扫码确认...\n");
+   for (int i = 0; i < 120; i++) {
+    usleep(500000);
+    int r = netease_qr_check(unikey);
+    if (r == 1) { printf("✅ 登录成功!\n"); fflush(stdout); break; }
+    if (r == -1) { printf("❌ 二维码已过期，请重试\n"); fflush(stdout); break; }
+   }
+   printf("按任意键返回...\n");
+   getchar();
+   refresh();
+  }
+ }
  break;
 
  case 'd': case 'D':

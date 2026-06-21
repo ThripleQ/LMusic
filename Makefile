@@ -3,8 +3,8 @@ CFLAGS = -O2
 LIBS = -lasound -lncurses -lpthread -lavformat -lavcodec -lavutil -lswresample
 PREFIX ?= /usr/local
 
-lmusic: player.c decoder.c decoder.h
-	$(CC) $(CFLAGS) player.c decoder.c $(LIBS) -o lmusic
+lmusic: player.c decoder.c decoder.h netease.c netease.h song.h
+	$(CC) $(CFLAGS) player.c decoder.c netease.c $(LIBS) -o lmusic
 
 install: lmusic
 	cp lmusic $(DESTDIR)$(PREFIX)/bin/

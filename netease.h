@@ -6,7 +6,7 @@
 
 #include "song.h"
 
-#define NETEASE_CLI "./netease-cli/netease-cli"
+#define NETEASE_CLI "netease-cli"
 
 // ── 歌曲数据接口 ──────────────────────────────────────────
 

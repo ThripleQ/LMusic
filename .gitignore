@@ -19,3 +19,8 @@ MyGO!!!!!*.mp3
 *.swo
 *~
 debug.log
+
+cookie.txt
+netease-cli/cookie.txt
+netease-cli/go.mod
+netease-cli/go.sum
