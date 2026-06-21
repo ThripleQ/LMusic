@@ -619,6 +619,11 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  wattron(win, COLOR_PAIR(2) | A_BOLD);
  mvwprintw(win, drow, 2, "%c %s", marker, dname);
  wattroff(win, COLOR_PAIR(2) | A_BOLD);
+ } else if (d == netease_vdir_idx) {
+ // 网易云目录：红色加粗
+ wattron(win, COLOR_PAIR(6) | A_BOLD);
+ mvwprintw(win, drow, 2, "%c %s", marker, dname);
+ wattroff(win, COLOR_PAIR(6) | A_BOLD);
  } else {
  int has_songs = 0;
  for (int i = 0; i < cur_total; i++) {
@@ -1047,9 +1052,12 @@ int main(int argc, char *argv[]) {
         if (has_songs) { init_dir = d; break; }
     }
 
-    // 添加网易云虚拟目录
-    netease_vdir_idx = dir_count;
-    snprintf(dirs[dir_count++], sizeof(dirs[0]), "网易云");
+    // 添加网易云虚拟目录（置顶）
+    netease_vdir_idx = 0;
+    for (int i = dir_count; i > 0; i--)
+        memcpy(dirs[i], dirs[i-1], sizeof(dirs[0]));
+    strncpy(dirs[0], "网易云", 511);
+    dir_count++;
 
     if (atomic_load(&song_count) == 0) {
         fprintf(stderr, "提示: 没有找到音频文件\n");
@@ -1070,6 +1078,7 @@ int main(int argc, char *argv[]) {
  init_pair(3, COLOR_WHITE, COLOR_BLUE);   // 底部栏：白字蓝底
  init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
  init_pair(5, COLOR_BLACK, COLOR_WHITE);   // 进度条：黑字白底
+ init_pair(6, COLOR_RED, COLOR_BLACK);     // 网易云目录：红字黑底
  cbreak();
  noecho();
  keypad(stdscr, TRUE);
