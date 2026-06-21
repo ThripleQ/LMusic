@@ -284,13 +284,11 @@ fail:
 }
 
 // 辅助：确保缓冲区能容纳 needed 字节
-static int realloc_buf(uint8_t **buf, size_t *cap, size_t needed) {
+static void realloc_buf(uint8_t **buf, size_t *cap, size_t needed) {
     size_t new_cap = *cap ? *cap * 2 : 65536;
     while (new_cap < needed) new_cap *= 2;
     uint8_t *new_buf = realloc(*buf, new_cap);
-    if (!new_buf) return -1;
- *buf = new_buf; *cap = new_cap;
- return 0;
+    if (new_buf) { *buf = new_buf; *cap = new_cap; }
 }
 
 int stream_decode(StreamDecoder *sd, uint8_t **buf, size_t *cap, long long *total_frames) {
@@ -324,7 +322,7 @@ int stream_decode(StreamDecoder *sd, uint8_t **buf, size_t *cap, long long *tota
                 // 有残留，写入 buffer
                 size_t cur_bytes = (*total_frames) * p->frame_bytes;
                 size_t needed = cur_bytes + (size_t)n * p->frame_bytes;
-                if (needed > *cap || (realloc_buf(buf, cap, needed) != 0)) return -1;
+                if (needed > *cap) realloc_buf(buf, cap, needed);
                 uint8_t *out = *buf + cur_bytes;
                 int converted = swr_convert(p->swr, &out, n, NULL, 0);
                 if (converted > 0) {
@@ -344,7 +342,7 @@ int stream_decode(StreamDecoder *sd, uint8_t **buf, size_t *cap, long long *tota
 
         size_t cur_bytes = (*total_frames) * p->frame_bytes;
         size_t needed = cur_bytes + (size_t)out_samples * p->frame_bytes;
-        if (needed > *cap || (realloc_buf(buf, cap, needed) != 0)) return -1;
+        if (needed > *cap) realloc_buf(buf, cap, needed);
 
         uint8_t *out = *buf + cur_bytes;
         int n = swr_convert(p->swr, &out, out_samples,

@@ -1372,7 +1372,7 @@ input:
    if (netease_search_buf[0]) {
     netease_submode = 1;
     char cmd[1024];
-     // shell 安全：过滤非安全字符
+    // shell 安全：过滤非安全字符
   char safe_q[256]; int si = 0;
   for (const char *p = netease_search_buf; *p && si < 248; p++) {
    if (isalnum((unsigned char)*p) || *p == ' ' || *p == '-' || *p == '_' ||
