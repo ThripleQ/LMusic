@@ -391,7 +391,7 @@ int netease_qr_get_key(char *url, int url_len, char *unikey, int key_len) {
 }
 
 int netease_qr_check(const char *unikey) {
-    char *json = run_cli("%s qr-check %s", NETEASE_CLI, unikey);
+    char *json = run_cli("%s qr-check %s 2>/dev/null", NETEASE_CLI, unikey);
     if (!json) return -1;
     long long code = json_int(json, "code");
     free(json);

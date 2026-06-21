@@ -115,18 +115,12 @@ func main() {
 
 	case "qr-key":
 		s := service.LoginQRService{}
-		_, body, qrUrl, err := s.GetKey()
+		_, _, qrUrl, err := s.GetKey()
 		if err != nil {
 			die(fmt.Sprintf("get qr key failed: %v", err))
 		}
-		// 返回 {unikey, url}
-		resp := map[string]string{
-			"unikey": s.UniKey,
-			"url":    qrUrl,
-		}
-		b, _ := json.Marshal(resp)
-		fmt.Println(string(b))
-		_ = body
+		// 不用 json.Marshal — URL 里的 & 会被编码成 \u0026 破坏二维码
+		fmt.Printf("{\"unikey\":\"%s\",\"url\":\"%s\"}\n", s.UniKey, qrUrl)
 
 	case "qr-check":
 		if len(os.Args) < 3 {
