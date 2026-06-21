@@ -1698,12 +1698,11 @@ input:
     matched++;
     if (matched == song_scroll + (ev.y - brow) + 1) {
      song_sel = matched - 1;
-     // 双击检测：400ms 内同位置第二次按下
+     // 双击检测：同秒同行第二次按下算双击
      static time_t last_mclick = 0;
      static int last_mrow = -1;
-     int now_ms = (int)(time(NULL) * 1000);
-     int is_dbl = (now_ms - last_mclick < 400 && last_mrow == ev.y);
-     last_mclick = now_ms;
+     int is_dbl = (last_mrow == ev.y && time(NULL) - last_mclick < 1);
+     last_mclick = time(NULL);
      last_mrow = ev.y;
      if (is_dbl) {
       int cnt2 = 0, target2 = -1;
