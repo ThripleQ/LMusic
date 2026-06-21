@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <wchar.h>
+#include <time.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <alsa/asoundlib.h>
@@ -320,6 +321,7 @@ pcm = NULL; atomic_store(&g_state.state, STOPPED); atomic_store(&play_error, 1);
  }
 
  atomic_store(&g_state.state, PLAYING);
+ atomic_store(&play_error, 0);
  continue;
  }
 
@@ -361,6 +363,7 @@ pcm = NULL; atomic_store(&g_state.state, STOPPED); atomic_store(&play_error, 1);
  if (cmd == 3 && st == PAUSED) {
  snd_pcm_prepare(pcm);
  atomic_store(&g_state.state, PLAYING);
+ atomic_store(&play_error, 0);
  continue;
  }
 
@@ -958,6 +961,11 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   mvwprintw(win, info_row, 2, "⚠ 解码失败，可能是无权限或文件异常");
   wattroff(win, COLOR_PAIR(3));
    wattroff(win, COLOR_PAIR(3));
+ } else if (atomic_load(&play_error)) {
+  wattron(win, COLOR_PAIR(3));
+  mvwhline(win, info_row, 0, ' ', col_w);
+  mvwprintw(win, info_row, 2, "⚠ 解码失败，可能是无权限或文件异常");
+  wattroff(win, COLOR_PAIR(3));
  } else if (!help_dismissed) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
@@ -1424,6 +1432,7 @@ input:
   strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
   atomic_store(&play_index, target);
   atomic_store(&g_state.seek_frame, -1);
+  atomic_store(&play_error, 1);
   atomic_store(&g_state.command, 1);
   last_play_ts = time(NULL);
   break;
