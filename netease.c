@@ -232,7 +232,7 @@ static int parse_song(const char *song_json, Song *s) {
 
     // 取歌曲 ID：跳过 al、ar 和 privilege 里嵌套的 id
     const char *id_start = song_json;
-    for (int skip = 0; skip < 2; skip++) {
+    for (int skip = 0; skip < 3; skip++) {
         static const char *skip_keys[] = {"al", "ar", "privilege"};
         const char *key = skip_keys[skip];
         char key_q[32]; snprintf(key_q, sizeof(key_q), "\"%s\"", key);
@@ -570,7 +570,11 @@ int netease_qr_check(const char *unikey) {
 
 int netease_login_status(void) {
     // 简单检查 cookie.txt 是否存在
-    FILE *f = fopen("netease-cli/cookie.txt", "r");
+    const char *home = getenv("HOME");
+    if (!home) return 0;
+    char path[512];
+    snprintf(path, sizeof(path), "%s/.cache/lmusic/cookies.txt", home);
+    FILE *f = fopen(path, "r");
     if (f) { fclose(f); return 1; }
     return 0;
 }

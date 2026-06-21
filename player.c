@@ -323,9 +323,10 @@ static void *playback_thread(void *arg) {
 
  // ── 快进/后退：只 seek，不重开流 ──
  if (cmd == 7) {
+  if (!g_stream_dec) { continue; }
   long long st = atomic_exchange(&g_state.seek_frame, -1);
   int sr = atomic_load(&g_state.sample_rate);
-  if (g_stream_dec && sr > 0 && st >= 0) {
+  if (sr > 0 && st >= 0) {
    stream_seek(g_stream_dec, st, sr);
    g_stream_local_total = 0;
    g_decode_done = false;
@@ -1371,7 +1372,16 @@ input:
    if (netease_search_buf[0]) {
     netease_submode = 1;
     char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "netease-cli search %s 2>/dev/null", netease_search_buf);
+     // shell 安全：过滤非安全字符
+  char safe_q[256]; int si = 0;
+  for (const char *p = netease_search_buf; *p && si < 248; p++) {
+   if (isalnum((unsigned char)*p) || *p == ' ' || *p == '-' || *p == '_' ||
+       *p == '.' || *p == ',' || *p == '+' || *p == '#' || *p == '(' || *p == ')' ||
+       *p == '[' || *p == ']' || (*p & 0x80))
+    safe_q[si++] = *p;
+  }
+  safe_q[si] = '\0';
+  snprintf(cmd, sizeof(cmd), "netease-cli search %s 2>/dev/null", safe_q);
     start_loading(cmd, "\u250f 搜索中...");
    }
   } else if (song_sel == 1) {
