@@ -1734,7 +1734,6 @@ input:
      if (sel == 0) {
       timeout(-1); echo(); curs_set(1);
       mvwhline(stdscr, brows - 2, 0, ' ', bcols);
-      mvwhline(stdscr, brows - 1, 0, ' ', bcols);
       mvwprintw(stdscr, brows - 2, 2, "搜索: ");
       wgetnstr(stdscr, netease_search_buf, sizeof(netease_search_buf)-1);
       noecho(); curs_set(0); timeout(30);
