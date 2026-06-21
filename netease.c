@@ -405,6 +405,14 @@ int netease_login_cellphone(const char *phone, const char *password) {
 }
 
 int netease_qr_get_key(char *url, int url_len, char *unikey, int key_len) {
+    // 清除 cookie 文件，防止旧会话干扰
+    char cp[512];
+    const char *home = getenv("HOME");
+    if (home) {
+        snprintf(cp, sizeof(cp), "%s/.cache/lmusic/cookies.txt", home);
+        remove(cp);
+    }
+    remove("cookie.txt");
     char *json = run_cli("%s qr-key", NETEASE_CLI);
     if (!json) return -1;
     char *u = json_str(json, "url");

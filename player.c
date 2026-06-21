@@ -1317,7 +1317,10 @@ input:
 
  case 'l': case 'L':
   if (!qr_logging_in) {
-   remove("cookie.txt");  // 清除旧 cookie 防止 API 失败
+   remove("cookie.txt");
+   char cookie_path[512];
+   snprintf(cookie_path, sizeof(cookie_path), "%s/.cache/lmusic/cookies.txt", getenv("HOME"));
+   remove(cookie_path);
    if (netease_qr_get_key(qr_url, sizeof(qr_url), qr_unikey, sizeof(qr_unikey)) == 0) {
     qr_logging_in = 1;
     qr_next_check = 0;
