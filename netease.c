@@ -381,16 +381,7 @@ int netease_qr_get_key(char *url, int url_len, char *unikey, int key_len) {
     char *u = json_str(json, "url");
     char *k = json_str(json, "unikey");
     if (u && k) {
-        // 修正 URL: http→https，去掉 chainId（App 扫码需要）
-        char *fixed = u;
-        if (strncmp(fixed, "http://", 7) == 0) {
-            snprintf(url, url_len, "https://%s", fixed + 7);
-        } else {
-            snprintf(url, url_len, "%s", fixed);
-        }
-        // 截掉 &chainId=... 部分
-        char *amp = strchr(url, '&');
-        if (amp) *amp = '\0';
+        snprintf(url, url_len, "%s", u);
         snprintf(unikey, key_len, "%s", k);
         free(u); free(k); free(json);
         return 0;
