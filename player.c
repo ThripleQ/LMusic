@@ -1320,7 +1320,7 @@ input:
  }
  break;
 
- case 'b': case 'B':
+ case 27:  // ESC → 网易云返回菜单
  if (netease_mode && netease_submode > 0) {
   load_netease_menu();
   netease_mode = 1;
