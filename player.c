@@ -1129,6 +1129,7 @@ input:
  if (dir_count == 0) break;
  selected = (selected - 1 + dir_count) % dir_count;
  song_sel = 0;
+ song_scroll = 0;
  if (selected < dir_scroll) dir_scroll = selected;
  } else {
  if (dir_count == 0) break;
@@ -1149,6 +1150,7 @@ input:
  if (dir_count == 0) break;
  selected = (selected + 1) % dir_count;
  song_sel = 0;
+ song_scroll = 0;
  int lr = getmaxy(stdscr) - 4;
  if (selected >= dir_scroll + lr) dir_scroll = selected - lr + 1;
  } else {
