@@ -40,14 +40,52 @@ func main() {
 
 	case "song-url":
 		if len(os.Args) < 3 {
-			die("usage: netease-cli song-url <id> [br]")
+			die("usage: netease-cli song-url <id> [level]")
 		}
-		s := service.SongUrlService{ID: os.Args[2]}
+		id := os.Args[2]
+		level := service.Standard
 		if len(os.Args) > 3 {
-			s.Br = os.Args[3]
+			level = service.SongQualityLevel(os.Args[3])
 		}
-		_, body := s.SongUrl()
-		output(body)
+		// 策略同 musicfox：先 V1，受限则回退旧 API
+		v1 := service.SongUrlV1Service{ID: id, Level: level, SkipUNM: true}
+		v1Code, v1Body, v1Err := v1.SongUrl()
+		v1Url := ""
+		var v1Data map[string]interface{}
+		if v1Err == nil && json.Unmarshal(v1Body, &v1Data) == nil {
+			if items, ok := v1Data["data"].([]interface{}); ok && len(items) > 0 {
+				if item, ok := items[0].(map[string]interface{}); ok {
+					if u, ok := item["url"].(string); ok {
+						v1Url = u
+					}
+					// 如果有 freeTrialInfo（受限），强制回退
+					if _, hasTrial := item["freeTrialInfo"]; hasTrial && item["freeTrialInfo"] != nil {
+						v1Url = ""
+					}
+				}
+			}
+		}
+		// 最终结果
+		var finalCode float64
+		var finalBody []byte
+		if v1Url != "" {
+			finalCode = v1Code
+			finalBody = v1Body
+		} else {
+			// 回退旧 API（musicfox 映射: standard/higher/exhigh→320000, lossless/hires→999000）
+			br := "320000"
+			if level == service.Lossless || level == service.Hires {
+				br = "999000"
+			}
+			oldSvc := service.SongUrlService{ID: id, Br: br}
+			finalCode, finalBody = oldSvc.SongUrl()
+		}
+		// 以标准格式输出
+		var result map[string]interface{}
+		json.Unmarshal(finalBody, &result)
+		result["code"] = finalCode
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
 
 	case "song-detail":
 		if len(os.Args) < 3 {
