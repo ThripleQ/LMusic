@@ -29,6 +29,7 @@ func main() {
 	// 配置 UNM（UnblockNeteaseMusic）自动解锁受限歌曲
 	util.ForceBestQuality = true
 	util.EnableLocalVip = true
+	util.UNMSwitch = true
 	util.ConfigInit()
 
 	cmd := os.Args[1]
@@ -52,7 +53,7 @@ func main() {
 			level = service.SongQualityLevel(os.Args[3])
 		}
 		// 策略同 musicfox：先 V1，受限则回退旧 API
-		v1 := service.SongUrlV1Service{ID: id, Level: level, SkipUNM: true}
+		v1 := service.SongUrlV1Service{ID: id, Level: level, SkipUNM: false}
 		v1Code, v1Body, v1Err := v1.SongUrl()
 		v1Url := ""
 		var v1Data map[string]interface{}
@@ -186,18 +187,27 @@ func main() {
 		if len(idStrs) == 0 {
 			die("no liked songs")
 		}
-		// 调 SongDetail 获取完整信息
-		detailSvc := service.SongDetailService{Ids: strings.Join(idStrs, ",")}
-		_, detailBody := detailSvc.SongDetail()
-		// 重组为与 search 兼容的格式 {code, result:{songs:[...]}}
-		var detailData map[string]interface{}
-		json.Unmarshal(detailBody, &detailData)
-		if songs, ok := detailData["songs"]; ok {
-			out := map[string]interface{}{"code": 200, "result": map[string]interface{}{"songs": songs}}
+		// 分批调 SongDetail（网易云 API 对单次查询有限制），合并结果
+		var allSongs []interface{}
+		batchSize := 200
+		for i := 0; i < len(idStrs); i += batchSize {
+			end := i + batchSize
+			if end > len(idStrs) { end = len(idStrs) }
+			batch := strings.Join(idStrs[i:end], ",")
+			detailSvc := service.SongDetailService{Ids: batch}
+			_, detailBody := detailSvc.SongDetail()
+			var batchData map[string]interface{}
+			json.Unmarshal(detailBody, &batchData)
+			if songs, ok := batchData["songs"].([]interface{}); ok {
+				allSongs = append(allSongs, songs...)
+			}
+		}
+		if len(allSongs) > 0 {
+			out := map[string]interface{}{"code": 200, "result": map[string]interface{}{"songs": allSongs}}
 			b, _ := json.Marshal(out)
 			fmt.Println(string(b))
 		} else {
-			fmt.Println(string(detailBody))
+			fmt.Println()
 		}
 	}
 	
