@@ -112,6 +112,7 @@ static int loading_done = 0;
 static int loading_filled = 0;
 static int loading_frame = 0;
 static char now_label[64] = "", now_title[256] = "";
+static char status_msg[128] = ""; static time_t status_until = 0;
 static char loading_msg[64];
 static char loading_buf[1048576];
 static int loading_len = 0;
@@ -939,6 +940,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    }
   }
  } else if (pi >= 0 && pi < cur_total) {
+  status_msg[0] = '\0'; // 有播放则清除状态提示
   // ── 信息行（白字蓝底，无状态图标）──
   wattron(win, COLOR_PAIR(3));
     mvwhline(win, info_row, 0, ' ', col_w);
@@ -1054,7 +1056,16 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattroff(win, COLOR_PAIR(5));
  }
 
-  if (now_label[0]) {
+  // 播放中不需要保留错误提示
+  if (atomic_load(&g_state.state) == PLAYING) status_msg[0] = '\0';
+
+  if (status_msg[0] && time(NULL) < status_until) {
+   // 状态提示（🔒 等）：优先于 now_label 显示，3 秒后自动消失
+   wattron(win, COLOR_PAIR(3));
+   mvwhline(win, info_row, 0, ' ', col_w);
+   mvwprintw(win, info_row, 2, "%s", status_msg);
+   wattroff(win, COLOR_PAIR(3));
+  } else if (now_label[0]) {
    // 常驻进度条：加载中也画
    int st = atomic_load(&g_state.state);
    long long fo = atomic_load(&g_state.frame_offset);
@@ -1543,12 +1554,8 @@ input:
   last_enter = time(NULL);
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
-   int mor = getmaxy(stdscr)-2;
-   wattron(stdscr, COLOR_PAIR(3));
-   mvwhline(stdscr, mor, 0, ' ', getmaxx(stdscr));
-   mvwprintw(stdscr, mor, 2, "\U0001f512 无权限或无可用源");
-   wattroff(stdscr, COLOR_PAIR(3));
-   wrefresh(stdscr);
+   snprintf(status_msg, sizeof(status_msg), "\U0001f512 无权限或无可用源");
+   status_until = time(NULL) + 3;
    break;
   }
   strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
@@ -1884,13 +1891,9 @@ input:
        atomic_store(&g_state.seek_frame, -1);
        atomic_store(&g_state.command, 1);
       } else {
-       // 无权限或无源：信息栏提示
-       int sr = getmaxy(stdscr);
-       mvwhline(stdscr, sr - 2, 0, ' ', col_w);
-       wattron(stdscr, COLOR_PAIR(3));
-       mvwprintw(stdscr, sr - 2, 2, "\U0001f512 无权限或无可用源");
-       wattroff(stdscr, COLOR_PAIR(3));
-       wrefresh(stdscr);
+       // 无权限或无源 → status_msg，draw_ui 显示 3 秒
+       snprintf(status_msg, sizeof(status_msg), "\U0001f512 无权限或无可用源");
+       status_until = time(NULL) + 3;
       }
      } else {
       strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
