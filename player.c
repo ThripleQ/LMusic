@@ -113,6 +113,7 @@ static int loading_filled = 0;
 static int loading_frame = 0;
 static char now_label[64] = "", now_title[256] = "";
 static char status_msg[128] = ""; static time_t status_until = 0;
+static int playing_netease = 0;  // 当前播放的是否网易云歌曲
 static char loading_msg[64];
 static char loading_buf[1048576];
 static int loading_len = 0;
@@ -1107,19 +1108,35 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    int cur_pi = atomic_load(&play_index);
    int local_cnt = atomic_load(&song_count);
    if (cur_pi >= 0) {
-    if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
-     strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
-     if (playlist[cur_pi].artist[0])
-      snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
-     else
-      strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
-    } else if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
-     // isdigit 过滤菜单项（id 以 __ 开头），只刷新真歌曲
-     strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
-     if (ne_playlist[cur_pi].artist[0])
-      snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
-     else
-      strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
+    // 网易云歌曲优先查 ne_playlist，本地优先查 playlist
+    if (playing_netease) {
+     if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
+      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (ne_playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
+      else
+       strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
+     } else if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
+      strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
+      else
+       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+     }
+    } else {
+     if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
+      strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
+      else
+       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+     } else if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
+      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (ne_playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
+      else
+       strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
+     }
     }
    }
    if (!loading && !quitting) {
@@ -1581,6 +1598,7 @@ input:
        strncpy(now_title, ne_playlist[target].title, sizeof(now_title)-1);
   atomic_store(&g_state.seek_frame, -1);
   atomic_store(&g_state.command, 1);
+  playing_netease = 1;
   break;
  }
 
@@ -1609,6 +1627,7 @@ input:
  sizeof(g_state.pending_path)-1);
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
+ playing_netease = 0;
  }
  break;
 
@@ -1904,6 +1923,7 @@ input:
         strncpy(now_title, slist[target].title, sizeof(now_title)-1);
        atomic_store(&g_state.seek_frame, -1);
        atomic_store(&g_state.command, 1);
+       playing_netease = 1;
       } else {
        // 无权限或无源 → status_msg，draw_ui 显示 3 秒
        snprintf(status_msg, sizeof(status_msg), "\U0001f512 无权限或无可用源");
@@ -1919,6 +1939,7 @@ input:
        strncpy(now_title, slist[target].title, sizeof(now_title)-1);
       atomic_store(&g_state.seek_frame, -1);
       atomic_store(&g_state.command, 1);
+      playing_netease = 0;
      }
     } else {
      // 歌曲未选中 → 选中
