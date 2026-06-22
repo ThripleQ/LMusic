@@ -1362,7 +1362,7 @@ int main(int argc, char *argv[]) {
  //
  init_pair(1, COLOR_YELLOW, COLOR_BLUE);   // 标题栏：黄字蓝底
  init_pair(2, COLOR_WHITE, COLOR_CYAN);   // 选中行：白字青底
- init_pair(3, COLOR_YELLOW, COLOR_BLUE);   // 底部栏：黄字蓝底
+ init_pair(3, COLOR_WHITE, COLOR_BLUE);   // 底部栏：黄字蓝底
  init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
  init_pair(5, COLOR_BLACK, COLOR_WHITE);  // 进度条：黑字白底（bg 决定整行底色）
  init_pair(6, COLOR_RED, COLOR_BLACK);    // 网易云目录/红心（勿改黑底）
