@@ -1318,8 +1318,6 @@ int main(int argc, char *argv[]) {
  // ── 加载动画轮询（基于系统时间，getch 非阻塞确保循环运转）──
  if (loading) {
   if (!loading_started) { clock_gettime(CLOCK_MONOTONIC, &loading_ts); loading_started = 1; }
-  nodelay(stdscr, TRUE);
-  napms(20);  // ~50fps, 避免 CPU 跑满
 
   if (!loading_done && loading_fp) {
    while (1) {
@@ -1346,7 +1344,7 @@ int main(int argc, char *argv[]) {
    long sprint_ms = (now.tv_sec - sprint_ts.tv_sec) * 1000 + (now.tv_nsec - sprint_ts.tv_nsec) / 1000000;
    int spr = 12 + sprint_ms / 40;
    if (spr > loading_filled) loading_filled = spr;
-   if (loading_filled >= 20) { loading_filled = 20; loading = 0; loading_done = 0; loading_started = 0; sprint_init = 0; nodelay(stdscr, FALSE); timeout(30); process_loading_result(); }
+   if (loading_filled >= 20) { loading_filled = 20; loading = 0; loading_done = 0; loading_started = 0; sprint_init = 0; process_loading_result(); }
   }
  }
 
