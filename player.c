@@ -1108,8 +1108,26 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
-   // 非加载状态覆盖信息行
+   // 非加载状态覆盖信息行：从 playlist 动态取歌名
+   // 避免 now_label/now_title 在列表循环自动切歌时变成 stale 镜像
    if (!loading) {
+    int cur_pi = atomic_load(&play_index);
+    int local_cnt = atomic_load(&song_count);
+    if (cur_pi >= 0) {
+     if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
+      strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
+      else
+       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+     } else if (cur_pi < ne_count && ne_playlist[cur_pi].id[0]) {
+      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
+      if (ne_playlist[cur_pi].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
+      else
+       strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
+     }
+    }
     wattron(win, COLOR_PAIR(3));
     mvwhline(win, info_row, 0, ' ', col_w);
     mvwprintw(win, info_row, 2, "%s", now_label);
