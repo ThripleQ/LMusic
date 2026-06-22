@@ -925,7 +925,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   int lx = 2;
   for (int i = 0; i < bar_w; i++, lx++) {
    if (i < filled) {
-    wattron(win, COLOR_PAIR(7));
+    wattron(win, COLOR_PAIR(7) | A_BOLD);
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(7));
    } else {
@@ -1360,13 +1360,13 @@ int main(int argc, char *argv[]) {
  //   要改配色的话，pair 5 必须保持 fg=BLACK, bg=WHITE（或 fg=WHITE, bg=BLACK），
  //   因为进度条行用空格填充整行再在上面写 ━ 字符，bg 决定整行底色。
  //
- init_pair(1, COLOR_WHITE, COLOR_BLUE);   // 标题栏：白字蓝底
+ init_pair(1, COLOR_CYAN, COLOR_BLUE);   // 标题栏：青字蓝底
  init_pair(2, COLOR_WHITE, COLOR_CYAN);   // 选中行：白字青底
- init_pair(3, COLOR_WHITE, COLOR_BLUE);   // 底部栏：白字蓝底
+ init_pair(3, COLOR_CYAN, COLOR_BLUE);   // 底部栏：青字蓝底
  init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
  init_pair(5, COLOR_BLACK, COLOR_WHITE);  // 进度条：黑字白底（bg 决定整行底色）
  init_pair(6, COLOR_RED, COLOR_BLACK);    // 网易云目录/红心（勿改黑底）
- init_pair(7, COLOR_RED, COLOR_BLUE);     // 加载条：红字蓝底
+ init_pair(7, COLOR_CYAN, COLOR_BLUE);     // 加载条：青字蓝底
  cbreak();
  noecho();
  set_escdelay(0);
