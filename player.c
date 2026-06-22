@@ -1090,6 +1090,24 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
+  } else if (!now_label[0] && (loading || qr_logging_in)) {
+   const char *loop_str = "      ";
+   if (atomic_load(&loop_mode) == 1) loop_str = "[单曲]";
+   else if (atomic_load(&loop_mode) == 2) loop_str = "[列表]";
+   int rt = atomic_load(&g_state.sample_rate);
+   if (rt == 0) rt = 44100;
+   char extra[64];
+   snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", loop_str, rt / 1000, atomic_load(&g_state.bits_per_sample));
+   wattron(win, COLOR_PAIR(5));
+   mvwhline(win, bar_row, 0, ' ', col_w);
+   char bar_line[512];
+   int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
+   int bar_w = col_w - bl - 20 - 3;
+   for (int i = 0; i < bar_w && bl < (int)sizeof(bar_line)-4; i++)
+    bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " ");
+   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " \u2502 %s", extra);
+   mvwaddstr(win, bar_row, 0, bar_line);
+   wattroff(win, COLOR_PAIR(5));
   }
 
   // ── 信息行：status_msg 优先，然后 now_label ──
