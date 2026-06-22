@@ -271,7 +271,7 @@ case "playlists": {
 	if uid == 0 {
 		die("failed to get uid, need login first")
 	}
-	svc := service.UserPlaylistService{Uid: fmt.Sprintf("%d", uid), Limit: "100", Offset: "0"}
+	svc := service.UserPlaylistService{Uid: fmt.Sprintf("%d", uid), Limit: "1000", Offset: "0"}
 	_, body := svc.UserPlaylist()
 	var raw map[string]interface{}
 	if err := json.Unmarshal(body, &raw); err != nil {
