@@ -279,14 +279,29 @@ static void *playback_thread(void *arg) {
 
  // ── 下一首 / 上一首 ──
  if (cmd == 5 || cmd == 6) {
- if (atomic_load(&song_count) == 0) continue;
- int next = (cmd == 5)
- ? (atomic_load(&play_index) + 1) % atomic_load(&song_count)
- : (atomic_load(&play_index) - 1 + atomic_load(&song_count)) % atomic_load(&song_count);
- atomic_store(&play_index, next);
- strncpy(g_state.pending_path, playlist[next].id,
- sizeof(g_state.pending_path)-1);
- atomic_store(&g_state.seek_frame, -1);
+ if (playing_netease) {
+  if (ne_count <= 0) continue;
+  int next = (cmd == 5)
+   ? (atomic_load(&play_index) + 1) % ne_count
+   : (atomic_load(&play_index) - 1 + ne_count) % ne_count;
+  if (next >= 0) {
+   char url[512];
+   if (netease_song_url(ne_playlist[next].id, url, sizeof(url)) == 0) {
+    atomic_store(&play_index, next);
+    strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
+    atomic_store(&g_state.seek_frame, -1);
+   }
+  }
+ } else {
+  if (atomic_load(&song_count) == 0) continue;
+  int next = (cmd == 5)
+   ? (atomic_load(&play_index) + 1) % atomic_load(&song_count)
+   : (atomic_load(&play_index) - 1 + atomic_load(&song_count)) % atomic_load(&song_count);
+  atomic_store(&play_index, next);
+  strncpy(g_state.pending_path, playlist[next].id,
+   sizeof(g_state.pending_path)-1);
+  atomic_store(&g_state.seek_frame, -1);
+ }
  }
 
  // ── 开始播放 ──
@@ -468,18 +483,37 @@ static void *playback_thread(void *arg) {
  atomic_store(&g_state.total_duration_frames, 0LL);
 
  // 循环模式处理
- if (atomic_load(&song_count) > 0 && atomic_load(&loop_mode) > 0) {
- atomic_store(&g_state.state, STOPPED);
- int next = (atomic_load(&loop_mode) == 2)
- ? (atomic_load(&play_index) + 1) % atomic_load(&song_count)
- : atomic_load(&play_index);
- if (next >= 0) {
- atomic_store(&play_index, next);
- strncpy(g_state.pending_path, playlist[next].id,
- sizeof(g_state.pending_path)-1);
- atomic_store(&g_state.seek_frame, -1);
- atomic_store(&g_state.command, 1);
- continue;
+ if (atomic_load(&loop_mode) > 0) {
+ if (playing_netease) {
+  if (ne_count <= 0) { atomic_store(&g_state.state, STOPPED); continue; }
+  int next = (atomic_load(&loop_mode) == 2)
+   ? (atomic_load(&play_index) + 1) % ne_count
+   : atomic_load(&play_index);
+  if (next >= 0) {
+   char url[512];
+   if (netease_song_url(ne_playlist[next].id, url, sizeof(url)) == 0) {
+    atomic_store(&g_state.state, STOPPED);
+    atomic_store(&play_index, next);
+    strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
+    atomic_store(&g_state.seek_frame, -1);
+    atomic_store(&g_state.command, 1);
+    continue;
+   }
+  }
+ } else {
+  if (atomic_load(&song_count) == 0) { atomic_store(&g_state.state, STOPPED); continue; }
+  int next = (atomic_load(&loop_mode) == 2)
+   ? (atomic_load(&play_index) + 1) % atomic_load(&song_count)
+   : atomic_load(&play_index);
+  if (next >= 0) {
+   atomic_store(&g_state.state, STOPPED);
+   atomic_store(&play_index, next);
+   strncpy(g_state.pending_path, playlist[next].id,
+    sizeof(g_state.pending_path)-1);
+   atomic_store(&g_state.seek_frame, -1);
+   atomic_store(&g_state.command, 1);
+   continue;
+  }
  }
  }
 
