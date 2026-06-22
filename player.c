@@ -857,11 +857,13 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  }
 
  if (is_sel) {
- wattron(win, COLOR_PAIR(2) | A_BOLD);
- mvwprintw(win, line_row, left_w + 2, "%c %s", marker, disp);
- wattroff(win, COLOR_PAIR(2) | A_BOLD);
+  // 整行填色 + 左右竖线保留
+  wattron(win, COLOR_PAIR(2) | A_BOLD);
+  mvwhline(win, line_row, left_w + 1, ' ', col_w - left_w - 1);
+  mvwprintw(win, line_row, left_w + 2, "  %s", disp);
+  wattroff(win, COLOR_PAIR(2) | A_BOLD);
  } else if (i == pi) {
- mvwprintw(win, line_row, left_w + 2, "%c %s", marker, disp);
+ mvwprintw(win, line_row, left_w + 2, "  %s", disp);
  } else {
  mvwprintw(win, line_row, left_w + 2, "  %s", disp);
  }
