@@ -914,8 +914,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    pclose(fp);
   }
  } else if (loading) {
-  // 正在播放时不占用信息行，留给 now_label 块显示歌曲信息
-  if (!now_label[0]) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   wattroff(win, COLOR_PAIR(3));
@@ -933,7 +931,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(3));
    }
-  }
   }
  } else if (pi >= 0 && pi < cur_total) {
   status_msg[0] = '\0'; // 有播放则清除状态提示
@@ -1163,17 +1160,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     mvwprintw(win, info_row, 2, "%s", now_label);
     mvwaddstr(win, info_row, left_w, "\u2502");
     mvwprintw(win, info_row, left_w + 2, "%s", now_title);
-    wattroff(win, COLOR_PAIR(3));
-   } else if (loading) {
-    // 加载中：信息行保留歌曲名 + 加载提示
-    wattron(win, COLOR_PAIR(3));
-    mvwhline(win, info_row, 0, ' ', col_w);
-    mvwprintw(win, info_row, 2, "%s", now_label);
-    mvwaddstr(win, info_row, left_w, "\u2502");
-    if (loading_msg[0])
-     mvwprintw(win, info_row, left_w + 2, "%s  [%s...]", now_title, loading_msg);
-    else
-     mvwprintw(win, info_row, left_w + 2, "%s  [加载中...]", now_title);
     wattroff(win, COLOR_PAIR(3));
    }
   }
