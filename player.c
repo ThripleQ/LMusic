@@ -921,6 +921,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    pclose(fp);
   }
  } else if (loading) {
+  // 正在播放时不占用信息行，留给 now_label 块显示歌曲信息
+  if (!now_label[0]) {
   wattron(win, COLOR_PAIR(3));
   mvwhline(win, info_row, 0, ' ', col_w);
   wattroff(win, COLOR_PAIR(3));
@@ -938,6 +940,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(3));
    }
+  }
   }
  } else if (pi >= 0 && pi < cur_total) {
   status_msg[0] = '\0'; // 有播放则清除状态提示
@@ -1100,31 +1103,41 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
-   // 非加载状态覆盖信息行：从 playlist 动态取歌名
-   // 避免 now_label/now_title 在列表循环自动切歌时变成 stale 镜像
-   if (!loading && !quitting) {
-    int cur_pi = atomic_load(&play_index);
-    int local_cnt = atomic_load(&song_count);
-    if (cur_pi >= 0) {
-     if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
-      strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
-      if (playlist[cur_pi].artist[0])
-       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
-      else
-       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
-     } else if (cur_pi < ne_count && ne_playlist[cur_pi].id[0]) {
-      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
-      if (ne_playlist[cur_pi].artist[0])
-       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
-      else
-       strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
-     }
+   // 信息行：从 playlist 动态取歌名，避免列表循环切歌时 stale
+   int cur_pi = atomic_load(&play_index);
+   int local_cnt = atomic_load(&song_count);
+   if (cur_pi >= 0) {
+    if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
+     strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
+     if (playlist[cur_pi].artist[0])
+      snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
+     else
+      strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+    } else if (cur_pi < ne_count && ne_playlist[cur_pi].id[0]) {
+     strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
+     if (ne_playlist[cur_pi].artist[0])
+      snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
+     else
+      strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
     }
+   }
+   if (!loading && !quitting) {
     wattron(win, COLOR_PAIR(3));
     mvwhline(win, info_row, 0, ' ', col_w);
     mvwprintw(win, info_row, 2, "%s", now_label);
     mvwaddstr(win, info_row, left_w, "\u2502");
     mvwprintw(win, info_row, left_w + 2, "%s", now_title);
+    wattroff(win, COLOR_PAIR(3));
+   } else if (loading) {
+    // 加载中：信息行保留歌曲名 + 加载提示
+    wattron(win, COLOR_PAIR(3));
+    mvwhline(win, info_row, 0, ' ', col_w);
+    mvwprintw(win, info_row, 2, "%s", now_label);
+    mvwaddstr(win, info_row, left_w, "\u2502");
+    if (loading_msg[0])
+     mvwprintw(win, info_row, left_w + 2, "%s  [%s...]", now_title, loading_msg);
+    else
+     mvwprintw(win, info_row, left_w + 2, "%s  [加载中...]", now_title);
     wattroff(win, COLOR_PAIR(3));
    }
   }
