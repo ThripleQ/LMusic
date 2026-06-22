@@ -706,12 +706,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  const char *dname = strrchr(dirs[d], '/');
  dname = dname ? dname + 1 : dirs[d];
  char marker = ' ';
- // 当前播放歌曲所在目录
- if (pi >= 0 && pi < cur_total) {
-  const char *pd = strrchr(dirs[d], '/'); pd = pd ? pd + 1 : dirs[d];
-  if (strcmp(cur_list[pi].aux_label, pd) == 0) marker = '>';
- }
- if (active_panel == 0 && d == selected && d == netease_vdir_idx) marker = '>';
  int drow = 2 + (d - dir_scroll);
  if (active_panel == 0 && d == selected) {
  // 选中行：清行 + 左右红竖线 + 选中色
@@ -800,8 +794,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  snprintf(dur_str, sizeof(dur_str), "%d:%02d", cur_list[i].duration_sec/60, cur_list[i].duration_sec%60);
 
  char marker = ' ';
- if (active_panel == 1 && song_idx + song_scroll == song_sel) marker = '>';
- else if (i == pi) marker = '>';
 
  int line_row = 2 + song_idx;
  int dur_w = dur_str[0] ? (int)strlen(dur_str) + 2 : 0;
