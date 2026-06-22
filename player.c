@@ -664,7 +664,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  int list_rows = rows - 4;
 
  // ── 标题栏 ──
- wattron(win, COLOR_PAIR(1));
+ wattron(win, COLOR_PAIR(1) | A_BOLD);
  mvwhline(win, 0, 0, ' ', col_w);
  mvwprintw(win, 0, 2, "Browser");
  mvwaddstr(win, 0, left_w, "│");
@@ -916,7 +916,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    pclose(fp);
   }
  } else if (loading) {
-  wattron(win, COLOR_PAIR(3));
+  wattron(win, COLOR_PAIR(3) | A_BOLD);
   mvwhline(win, info_row, 0, ' ', col_w);
   wattroff(win, COLOR_PAIR(3));
   int bar_w = col_w - 4;
@@ -929,7 +929,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(7));
    } else {
-    wattron(win, COLOR_PAIR(3));
+    wattron(win, COLOR_PAIR(3) | A_BOLD);
     mvwaddstr(win, info_row, lx, "━");
     wattroff(win, COLOR_PAIR(3));
    }
@@ -937,7 +937,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
  } else if (pi >= 0 && pi < cur_total) {
   status_msg[0] = '\0'; // 有播放则清除状态提示
   // ── 信息行（白字蓝底，无状态图标）──
-  wattron(win, COLOR_PAIR(3));
+  wattron(win, COLOR_PAIR(3) | A_BOLD);
     mvwhline(win, info_row, 0, ' ', col_w);
   if (quitting) {
    mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
@@ -982,7 +982,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   mvwaddstr(win, bar_row, 0, bar_line);
   wattroff(win, COLOR_PAIR(5));
  } else if (!help_dismissed) {
-  wattron(win, COLOR_PAIR(3));
+  wattron(win, COLOR_PAIR(3) | A_BOLD);
   mvwhline(win, info_row, 0, ' ', col_w);
   const char *hlp_loop = "";
   if (atomic_load(&loop_mode) == 1) hlp_loop = " [单曲]";
@@ -1018,7 +1018,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     scnt++;
    }
   }
-  wattron(win, COLOR_PAIR(3));
+  wattron(win, COLOR_PAIR(3) | A_BOLD);
     mvwhline(win, info_row, 0, ' ', col_w);
   if (quitting) {
    mvwprintw(win, info_row, 2, "确认退出？再按 q 或 Ctrl+C 退出，其他键取消");
@@ -1111,7 +1111,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
   // ── 信息行：status_msg 优先，然后 now_label ──
   if (status_msg[0] && time(NULL) < status_until) {
-   wattron(win, COLOR_PAIR(3));
+   wattron(win, COLOR_PAIR(3) | A_BOLD);
    mvwhline(win, info_row, 0, ' ', col_w);
    mvwprintw(win, info_row, 2, "%s", status_msg);
    wattroff(win, COLOR_PAIR(3));
@@ -1157,7 +1157,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     prev_pi = cur_pi;
    }
    if (!loading && !quitting) {
-    wattron(win, COLOR_PAIR(3));
+    wattron(win, COLOR_PAIR(3) | A_BOLD);
     mvwhline(win, info_row, 0, ' ', col_w);
     mvwprintw(win, info_row, 2, "%s", now_label);
     mvwaddstr(win, info_row, left_w, "\u2502");
@@ -1360,13 +1360,13 @@ int main(int argc, char *argv[]) {
  //   要改配色的话，pair 5 必须保持 fg=BLACK, bg=WHITE（或 fg=WHITE, bg=BLACK），
  //   因为进度条行用空格填充整行再在上面写 ━ 字符，bg 决定整行底色。
  //
- init_pair(1, COLOR_CYAN, COLOR_BLUE);   // 标题栏：青字蓝底
+ init_pair(1, COLOR_RED, COLOR_BLUE);   // 标题栏：亮红字蓝底
  init_pair(2, COLOR_WHITE, COLOR_CYAN);   // 选中行：白字青底
- init_pair(3, COLOR_CYAN, COLOR_BLUE);   // 底部栏：青字蓝底
+ init_pair(3, COLOR_RED, COLOR_BLUE);   // 底部栏：亮红字蓝底
  init_pair(4, COLOR_CYAN, COLOR_BLACK);   // 分隔线：青色细线
  init_pair(5, COLOR_BLACK, COLOR_WHITE);  // 进度条：黑字白底（bg 决定整行底色）
  init_pair(6, COLOR_RED, COLOR_BLACK);    // 网易云目录/红心（勿改黑底）
- init_pair(7, COLOR_CYAN, COLOR_BLUE);     // 加载条：青字蓝底
+ init_pair(7, COLOR_RED, COLOR_BLUE);     // 加载条：亮红字蓝底（bold）
  cbreak();
  noecho();
  set_escdelay(0);
