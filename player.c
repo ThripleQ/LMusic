@@ -1110,7 +1110,7 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    wattroff(win, COLOR_PAIR(5));
    // 非加载状态覆盖信息行：从 playlist 动态取歌名
    // 避免 now_label/now_title 在列表循环自动切歌时变成 stale 镜像
-   if (!loading) {
+   if (!loading && !quitting) {
     int cur_pi = atomic_load(&play_index);
     int local_cnt = atomic_load(&song_count);
     if (cur_pi >= 0) {
