@@ -271,32 +271,39 @@ case "playlists": {
 	if uid == 0 {
 		die("failed to get uid, need login first")
 	}
-	svc := service.UserPlaylistService{Uid: fmt.Sprintf("%d", uid), Limit: "1000", Offset: "0"}
-	_, body := svc.UserPlaylist()
-	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		fmt.Println(string(body))
-		return
-	}
-	playlistRaw, ok := raw["playlist"].([]interface{})
-	if !ok {
-		fmt.Println(string(body))
-		return
-	}
 	type plItem struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	var items []plItem
-	for _, p := range playlistRaw {
-		if pm, ok := p.(map[string]interface{}); ok {
-			var item plItem
-			if id, ok := pm["id"].(float64); ok { item.ID = int64(id) }
-			if name, ok := pm["name"].(string); ok { item.Name = name }
-			if item.ID > 0 { items = append(items, item) }
+	var allItems []plItem
+	offset := 0
+	limit := 100
+	for {
+		svc := service.UserPlaylistService{Uid: fmt.Sprintf("%d", uid), Limit: fmt.Sprintf("%d", limit), Offset: fmt.Sprintf("%d", offset)}
+		_, body := svc.UserPlaylist()
+		var raw map[string]interface{}
+		if err := json.Unmarshal(body, &raw); err != nil {
+			fmt.Println(string(body))
+			return
 		}
+		playlistRaw, ok := raw["playlist"].([]interface{})
+		if !ok || len(playlistRaw) == 0 {
+			break
+		}
+		for _, p := range playlistRaw {
+			if pm, ok := p.(map[string]interface{}); ok {
+				var item plItem
+				if id, ok := pm["id"].(float64); ok { item.ID = int64(id) }
+				if name, ok := pm["name"].(string); ok { item.Name = name }
+				if item.ID > 0 { allItems = append(allItems, item) }
+			}
+		}
+		if len(playlistRaw) < limit {
+			break
+		}
+		offset += limit
 	}
-	out := map[string]interface{}{"code": 200, "playlists": items}
+	out := map[string]interface{}{"code": 200, "playlists": allItems}
 	b, _ := json.Marshal(out)
 	fmt.Println(string(b))
 }
