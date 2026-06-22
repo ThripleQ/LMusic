@@ -282,7 +282,7 @@ static int parse_song(const char *song_json, Song *s) {
 
     // 取歌曲 ID：跳过 al、ar 和 privilege 里嵌套的 id
     const char *id_start = song_json;
-    for (int skip = 0; skip < 3; skip++) {
+    for (int skip = 0; skip < 2; skip++) {
         static const char *skip_keys[] = {"al", "ar", "privilege"};
         const char *key = skip_keys[skip];
         char key_q[32]; snprintf(key_q, sizeof(key_q), "\"%s\"", key);
