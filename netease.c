@@ -3,6 +3,8 @@
 
 #include "netease.h"
 
+#include <signal.h>
+#include <unistd.h>
 char netease_account_name[64] = "";
 #include <stdio.h>
 #include <stdlib.h>
@@ -108,6 +110,52 @@ static const char *json_match(const char *open) {
 // ── CLI 调用 ───────────────────────────────────────────────
 
 // 执行 netease-cli 命令，返回 JSON 字符串。调用者 free。
+static volatile int cli_timed_out = 0;
+static void cli_alarm(int sig) { (void)sig; cli_timed_out = 1; }
+
+// 带超时的 run_cli：最多等 timeout_sec 秒，超时返回 NULL
+static char *run_cli_timeout(const char *fmt, int timeout_sec, ...) {
+    char cmd[1024];
+    va_list ap;
+    va_start(ap, timeout_sec);
+    vsnprintf(cmd, sizeof(cmd), fmt, ap);
+    va_end(ap);
+
+    cli_timed_out = 0;
+    signal(SIGALRM, cli_alarm);
+    alarm(timeout_sec);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) { alarm(0); return NULL; }
+
+    size_t cap = 4096, len = 0;
+    char *buf = malloc(cap);
+    if (!buf) { pclose(fp); alarm(0); return NULL; }
+
+    while (!feof(fp) && !cli_timed_out) {
+        if (len + 1024 >= cap) {
+            cap *= 2;
+            char *tmp = realloc(buf, cap);
+            if (!tmp) { free(buf); pclose(fp); alarm(0); return NULL; }
+            buf = tmp;
+        }
+        size_t r = fread(buf + len, 1, 1024, fp);
+        if (r > 0) len += r;
+        else break;
+    }
+    alarm(0);
+    if (cli_timed_out || len == 0) {
+        pclose(fp);
+        // 超时或空输出
+        if (len > 0) buf[len] = 0;
+        else { free(buf); return NULL; }
+    } else {
+        pclose(fp);
+    }
+    buf[len] = 0;
+    return buf;
+}
+
+// 无超时的原始 run_cli（用于快速命令）
 static char *run_cli(const char *fmt, ...) {
     char cmd[1024];
     va_list ap;
@@ -386,7 +434,7 @@ int netease_search(const char *keyword, Song *results, int max) {
 }
 
 int netease_song_url(const char *id, char *url, int url_len) {
-    char *json = run_cli("%s song-url %s 2>/dev/null", NETEASE_CLI, id);
+    char *json = run_cli_timeout("%s song-url %s 2>/dev/null", 5, NETEASE_CLI, id);
     if (!json) return -1;
 
     int ret = -1;
