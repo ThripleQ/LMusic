@@ -572,7 +572,7 @@ static void load_netease_search(const char *kw) {
         ne_playlist[i] = results[i];
     netease_submode = 1;
     netease_mode = 1;
-    song_sel = 0;
+    song_sel = 0; song_scroll = 0;
 }
 
 // 加载歌单
@@ -585,7 +585,7 @@ static void load_netease_playlist(const char *id) {
         ne_playlist[i] = results[i];
     netease_submode = 2;
     netease_mode = 1;
-    song_sel = 0;
+    song_sel = 0; song_scroll = 0;
 }
 
 // 加载每日推荐
@@ -598,7 +598,7 @@ static void load_netease_daily(void) {
         ne_playlist[i] = results[i];
     netease_submode = 3;
     netease_mode = 1;
-    song_sel = 0;
+    song_sel = 0; song_scroll = 0;
 }
 
 // 加载红心歌单
@@ -611,7 +611,7 @@ static void load_netease_liked(void) {
         ne_playlist[i] = results[i];
     netease_submode = 4;
     netease_mode = 1;
-    song_sel = 0;
+    song_sel = 0; song_scroll = 0;
 }
 
 // ── 异步加载 ──
@@ -641,7 +641,7 @@ static void process_loading_result(void) {
     else if (netease_submode == 6)
         n = netease_parse_search(loading_buf, ne_playlist, MAX_SONGS);
     if (n > 0) {
-        ne_count = n; song_sel = 0; netease_mode = 1;
+        ne_count = n; song_sel = 0; song_scroll = 0; netease_mode = 1;
     } else {
         load_netease_menu();
     }
@@ -1694,7 +1694,7 @@ input:
  atomic_store(&song_count, start + n);
  }
  if (atomic_load(&song_count) > 0) save_library();
- song_sel = 0;
+ song_sel = 0; song_scroll = 0;
  selected = 0;
  // 重新定位第一个有歌曲的目录
  for (int d = 0; d < dir_count; d++) {
@@ -1712,7 +1712,7 @@ input:
  if (netease_mode && netease_submode > 0) {
   load_netease_menu();
   netease_mode = 1;
-  song_sel = 0;
+  song_sel = 0; song_scroll = 0;
  }
  break;
 
