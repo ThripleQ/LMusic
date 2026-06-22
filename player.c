@@ -1315,7 +1315,10 @@ int main(int argc, char *argv[]) {
   }
  }
 
- // ── 加载动画轮询（基于系统时间，getch 非阻塞确保循环运转）──
+ // ── 加载动画轮询 ──
+ // 进度条按系统时间推进，主循环由 timeout(30) 自动驱动，无需 nodelay/napms。
+ // 之前用 nodelay(TRUE)+napms(20) 会让 getch 在某些终端/ncurses 版本下
+ // 退化成"只有鼠标事件到来才返回"的状态，导致进度条必须靠点击才能前进。
  if (loading) {
   if (!loading_started) { clock_gettime(CLOCK_MONOTONIC, &loading_ts); loading_started = 1; }
 
