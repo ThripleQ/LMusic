@@ -1054,25 +1054,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   wattroff(win, COLOR_PAIR(5));
  }
 
-
- // ── 进度条行常驻（非播放状态）──
- if (!(pi >= 0 && pi < cur_total) && !qr_logging_in) {
-  const char *loop_str = "      ";
-  if (atomic_load(&loop_mode) == 1) loop_str = "[单曲]";
-  else if (atomic_load(&loop_mode) == 2) loop_str = "[列表]";
-  char extra[64];
-  snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", loop_str, rate / 1000, atomic_load(&g_state.bits_per_sample));
-  wattron(win, COLOR_PAIR(5));
-  mvwhline(win, bar_row, 0, ' ', col_w);
-  char bar_line[512];
-  int bl = snprintf(bar_line, sizeof(bar_line), " \u23f9 00:00 / 00:00 ");
-  int bar_w = col_w - bl - 20 - 3;
-  for (int i2 = 0; i2 < bar_w && bl < (int)sizeof(bar_line)-4; i2++)
-   bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " ");
-  bl += snprintf(bar_line + bl, sizeof(bar_line) - bl, " \u2502 %s", extra);
-  mvwaddstr(win, bar_row, 0, bar_line);
-  wattroff(win, COLOR_PAIR(5));
- }
   if (now_label[0]) {
    // 常驻进度条：加载中也画
    int st = atomic_load(&g_state.state);
@@ -1562,8 +1543,11 @@ input:
   last_enter = time(NULL);
   char url[512];
   if (netease_song_url(ne_playlist[target].id, url, sizeof(url)) != 0) {
-   mvwhline(stdscr, getmaxy(stdscr)-1, 0, ' ', col_w);
-   mvwprintw(stdscr, getmaxy(stdscr)-2, 2, "🔒 无权限播放");
+   int mor = getmaxy(stdscr)-2;
+   wattron(stdscr, COLOR_PAIR(3));
+   mvwhline(stdscr, mor, 0, ' ', getmaxx(stdscr));
+   mvwprintw(stdscr, mor, 2, "\U0001f512 无权限或无可用源");
+   wattroff(stdscr, COLOR_PAIR(3));
    wrefresh(stdscr);
    break;
   }
