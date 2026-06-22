@@ -1881,6 +1881,14 @@ input:
         strncpy(now_title, slist[target].title, sizeof(now_title)-1);
        atomic_store(&g_state.seek_frame, -1);
        atomic_store(&g_state.command, 1);
+      } else {
+       // 无权限或无源：信息栏提示
+       int sr = getmaxy(stdscr);
+       mvwhline(stdscr, sr - 2, 0, ' ', col_w);
+       wattron(stdscr, COLOR_PAIR(3));
+       mvwprintw(stdscr, sr - 2, 2, "\U0001f512 无权限或无可用源");
+       wattroff(stdscr, COLOR_PAIR(3));
+       wrefresh(stdscr);
       }
      } else {
       strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
