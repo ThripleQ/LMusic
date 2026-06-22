@@ -113,7 +113,7 @@ static int loading_filled = 0;
 static int loading_frame = 0;
 static char now_label[64] = "", now_title[256] = "";
 static char loading_msg[64];
-static char loading_buf[524288];
+static char loading_buf[1048576];
 static int loading_len = 0;
 static int loading_fd = -1;
 static FILE *loading_fp = NULL;        // 帮助文字是否已消失
