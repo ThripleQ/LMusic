@@ -111,6 +111,7 @@ static int loading = 0;
 static int loading_done = 0;
 static int loading_filled = 0;
 static int loading_frame = 0;
+static char now_label[64] = "", now_title[256] = "";
 static char loading_msg[64];
 static char loading_buf[65536];
 static int loading_len = 0;
@@ -1072,6 +1073,51 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   mvwaddstr(win, bar_row, 0, bar_line);
   wattroff(win, COLOR_PAIR(5));
  }
+  if (now_label[0]) {
+   // 常驻进度条：加载中也画
+   int st = atomic_load(&g_state.state);
+   long long fo = atomic_load(&g_state.frame_offset);
+   snd_pcm_uframes_t cf = (snd_pcm_uframes_t)(fo + atomic_load(&g_state.playback_frame));
+   long long md = atomic_load(&g_state.total_duration_frames);
+   long long pf = atomic_load(&g_state.peak_total_frames);
+   long long df_ = atomic_load(&g_state.total_frames);
+   long long bst = md ? md : (pf ? pf : df_);
+   snd_pcm_uframes_t tf = (snd_pcm_uframes_t)bst;
+   int rt = atomic_load(&g_state.sample_rate);
+   char ct[16], tt[16];
+   format_time(ct, 16, cf, rt);
+   format_time(tt, 16, tf, rt);
+   const char *ic = st==PLAYING?"\u25b6":st==PAUSED?"\u23f8":"\u23f9";
+   const char *ls = "      ";
+   if (atomic_load(&loop_mode) == 1) ls = "[单曲]";
+   else if (atomic_load(&loop_mode) == 2) ls = "[列表]";
+   char extra[64];
+   snprintf(extra, sizeof(extra), "%s %dkHz %dbit  ", ls, rt / 1000, atomic_load(&g_state.bits_per_sample));
+   wattron(win, COLOR_PAIR(5));
+   mvwhline(win, bar_row, 0, ' ', col_w);
+   char bll[512];
+   int bl_ = 0;
+   bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " %s %s / %s ", ic, ct, tt);
+   int bw = col_w - bl_ - 20 - 3;
+   if (bw > 0) {
+    int fl = tf > 0 ? (int)(cf * bw / tf) : 0;
+    if (fl > bw) fl = bw;
+    for (int i_ = 0; i_ < bw && bl_ < (int)sizeof(bll)-4; i_++)
+     bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, "%s", i_ < fl ? "\u2501" : " ");
+   }
+   bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
+   mvwaddstr(win, bar_row, 0, bll);
+   wattroff(win, COLOR_PAIR(5));
+   // 非加载状态覆盖信息行
+   if (!loading) {
+    wattron(win, COLOR_PAIR(3));
+    mvwhline(win, info_row, 0, ' ', col_w);
+    mvwprintw(win, info_row, 2, "%s", now_label);
+    mvwaddstr(win, info_row, left_w, "\u2502");
+    mvwprintw(win, info_row, left_w + 2, "%s", now_title);
+    wattroff(win, COLOR_PAIR(3));
+   }
+  }
   wmove(win, 2, active_panel == 0 ? 2 : left_w + 2);
  wrefresh(win);
 }
@@ -1417,6 +1463,7 @@ input:
    int sr = getmaxy(stdscr);
    mvwhline(stdscr, sr - 2, 0, ' ', col_w);
    mvwprintw(stdscr, sr - 2, 2, "搜索: ");
+   int p0 = 2 + 6;
    int sp = 0; netease_search_buf[0] = '\0';
    timeout(50); curs_set(1);
    while (1) {
@@ -1426,10 +1473,10 @@ input:
     if (c == ERR) continue;
     if ((c == 127 || c == KEY_BACKSPACE) && sp > 0) {
      sp--; netease_search_buf[sp] = '\0';
-     mvwaddch(stdscr, sr - 2, 2 + sp, ' '); wmove(stdscr, sr - 2, 2 + sp);
-    } else if (c >= 32 && c < 127 && sp < (int)sizeof(netease_search_buf)-1) {
+     mvwaddch(stdscr, sr - 2, p0 + sp, ' '); wmove(stdscr, sr - 2, p0 + sp);
+    } else if (c >= 32 && sp < (int)sizeof(netease_search_buf)-1) {
      netease_search_buf[sp++] = c; netease_search_buf[sp] = '\0';
-     mvwaddch(stdscr, sr - 2, 2 + sp - 1, c);
+     mvwaddch(stdscr, sr - 2, p0 + sp - 1, c);
     }
    }
    noecho(); curs_set(0); timeout(30);
@@ -1504,6 +1551,11 @@ input:
   }
   strncpy(g_state.pending_path, url, sizeof(g_state.pending_path)-1);
   atomic_store(&play_index, target);
+      strncpy(now_label, ne_playlist[target].aux_label, sizeof(now_label)-1);
+      if (ne_playlist[target].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[target].artist, ne_playlist[target].title);
+      else
+       strncpy(now_title, ne_playlist[target].title, sizeof(now_title)-1);
   atomic_store(&g_state.seek_frame, -1);
   atomic_store(&g_state.command, 1);
   break;
@@ -1525,7 +1577,12 @@ input:
  }
  if (target < 0) break;
  atomic_store(&play_index, target);
- strncpy(g_state.pending_path, songs[target].id,
+ strncpy(now_label, songs[target].aux_label, sizeof(now_label)-1);
+      if (songs[target].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", songs[target].artist, songs[target].title);
+      else
+       strncpy(now_title, songs[target].title, sizeof(now_title)-1);
+      strncpy(g_state.pending_path, songs[target].id,
  sizeof(g_state.pending_path)-1);
  atomic_store(&g_state.seek_frame, -1);
  atomic_store(&g_state.command, 1);
@@ -1703,7 +1760,15 @@ input:
    break;
   }
   if (ev.bstate & BUTTON5_PRESSED) {
-   if (active_panel == 1) { song_scroll++; }
+   if (active_panel == 1) {
+    const char *sdir = ""; if (selected >= 0 && selected < dir_count) {
+     const char *sp = strrchr(dirs[selected], '/'); sdir = sp ? sp + 1 : dirs[selected]; }
+    Song *slist = netease_mode ? ne_playlist : playlist;
+    int total = netease_mode ? ne_count : atomic_load(&song_count);
+    int cnt = 0; for (int i2 = 0; i2 < total; i2++) if (strcmp(slist[i2].aux_label, sdir) == 0) cnt++;
+    int max_scroll = cnt - list_rows; if (max_scroll < 0) max_scroll = 0;
+    if (song_scroll < max_scroll) song_scroll++;
+   }
    else if (active_panel == 0) { if (dir_scroll < dir_count - list_rows) dir_scroll++; }
    break;
   }
@@ -1766,6 +1831,7 @@ input:
       timeout(-1); echo(); curs_set(1);
       mvwhline(stdscr, brows - 2, 0, ' ', bcols);
       mvwprintw(stdscr, brows - 2, 2, "搜索: ");
+      int p02 = 2 + 6;
       int sp2 = 0; netease_search_buf[0] = '\0';
       timeout(50); curs_set(1);
       while (1) {
@@ -1775,10 +1841,10 @@ input:
        if (c == ERR) continue;
        if ((c == 127 || c == KEY_BACKSPACE) && sp2 > 0) {
         sp2--; netease_search_buf[sp2] = '\0';
-        mvwaddch(stdscr, brows - 2, 2 + sp2, ' '); wmove(stdscr, brows - 2, 2 + sp2);
-       } else if (c >= 32 && c < 127 && sp2 < (int)sizeof(netease_search_buf)-1) {
+        mvwaddch(stdscr, brows - 2, p02 + sp2, ' '); wmove(stdscr, brows - 2, p02 + sp2);
+       } else if (c >= 32 && sp2 < (int)sizeof(netease_search_buf)-1) {
         netease_search_buf[sp2++] = c; netease_search_buf[sp2] = '\0';
-        mvwaddch(stdscr, brows - 2, 2 + sp2 - 1, c);
+        mvwaddch(stdscr, brows - 2, p02 + sp2 - 1, c);
        }
       }
       noecho(); curs_set(0); timeout(30);
@@ -1808,12 +1874,22 @@ input:
       if (netease_song_url(slist[target].id, u2, sizeof(u2)) == 0) {
        strncpy(g_state.pending_path, u2, sizeof(g_state.pending_path)-1);
        atomic_store(&play_index, target);
+       strncpy(now_label, slist[target].aux_label, sizeof(now_label)-1);
+       if (slist[target].artist[0])
+        snprintf(now_title, sizeof(now_title), "%s - %s", slist[target].artist, slist[target].title);
+       else
+        strncpy(now_title, slist[target].title, sizeof(now_title)-1);
        atomic_store(&g_state.seek_frame, -1);
        atomic_store(&g_state.command, 1);
       }
      } else {
       strncpy(g_state.pending_path, slist[target].id, sizeof(g_state.pending_path)-1);
       atomic_store(&play_index, target);
+      strncpy(now_label, slist[target].aux_label, sizeof(now_label)-1);
+      if (slist[target].artist[0])
+       snprintf(now_title, sizeof(now_title), "%s - %s", slist[target].artist, slist[target].title);
+      else
+       strncpy(now_title, slist[target].title, sizeof(now_title)-1);
       atomic_store(&g_state.seek_frame, -1);
       atomic_store(&g_state.command, 1);
      }
