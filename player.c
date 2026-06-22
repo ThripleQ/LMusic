@@ -1113,7 +1113,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
      else
       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
-    } else if (cur_pi < ne_count && ne_playlist[cur_pi].id[0]) {
+    } else if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
+     // isdigit 过滤菜单项（id 以 __ 开头），只刷新真歌曲
      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
      if (ne_playlist[cur_pi].artist[0])
       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
