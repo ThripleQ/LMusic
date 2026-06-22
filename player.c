@@ -929,25 +929,40 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
 
  if (qr_logging_in) {
   // 扫码登录——ncurses 内渲染二维码
-  char cmd[1280];
-  snprintf(cmd, sizeof(cmd), "netease-cli qr-render '%s' 2>/dev/null", qr_url);
-  FILE *fp = popen(cmd, "r");
-  if (fp) {
-   // 清屏并居中显示
+  if (col_w < 35 || rows < 22) {
+   // 终端太小，不足以显示 QR
+   wattron(win, COLOR_PAIR(3) | A_BOLD);
    for (int r = 1; r < rows - 3; r++) mvwhline(win, r, 0, ' ', col_w);
-   int qr_y = (rows - 3) / 2 - 10;
-   if (qr_y < 2) qr_y = 2;
-   char qr_line[256];
-   int ln = 0;
-   while (ln < 30 && fgets(qr_line, sizeof(qr_line), fp)) {
-    size_t len = strlen(qr_line);
-    while (len > 0 && qr_line[len-1] == '\n') qr_line[--len] = '\0';
-    int x = (col_w - (int)len) / 2;
-    if (x < 0) x = 0;
-    mvwaddstr(win, qr_y + ln, x, qr_line);
-    ln++;
+   mvwprintw(win, (rows - 3) / 2, (col_w - 24) / 2, "终端太小，无法显示二维码");
+   mvwprintw(win, (rows - 3) / 2 + 1, (col_w - 26) / 2, "请放大窗口后按 l 重新登录");
+   wattroff(win, COLOR_PAIR(3) | A_BOLD);
+  } else {
+   char cmd[1280];
+   snprintf(cmd, sizeof(cmd), "netease-cli qr-render '%s' 2>/dev/null", qr_url);
+   FILE *fp = popen(cmd, "r");
+   if (fp) {
+    // 清屏并居中显示
+    for (int r = 1; r < rows - 3; r++) mvwhline(win, r, 0, ' ', col_w);
+    // 收集所有行，计算实际行数和最宽宽度
+    char qr_lines[30][256];
+    int qr_h = 0, qr_w_max = 0;
+    while (qr_h < 30 && fgets(qr_lines[qr_h], sizeof(qr_lines[qr_h]), fp)) {
+     size_t l = strlen(qr_lines[qr_h]);
+     while (l > 0 && qr_lines[qr_h][l-1] == '\n') qr_lines[qr_h][--l] = '\0';
+     int dw = display_width(qr_lines[qr_h]);
+     if (dw > qr_w_max) qr_w_max = dw;
+     qr_h++;
+    }
+    pclose(fp);
+    // 居中
+    int qr_y = (rows - 3 - qr_h) / 2;
+    if (qr_y < 2) qr_y = 2;
+    for (int ln = 0; ln < qr_h; ln++) {
+     int x = (col_w - display_width(qr_lines[ln])) / 2;
+     if (x < 0) x = 0;
+     mvwaddstr(win, qr_y + ln, x, qr_lines[ln]);
+    }
    }
-   pclose(fp);
   }
  } else if (loading) {
   wattron(win, COLOR_PAIR(3) | A_BOLD);
