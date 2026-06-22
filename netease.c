@@ -386,7 +386,7 @@ int netease_search(const char *keyword, Song *results, int max) {
 }
 
 int netease_song_url(const char *id, char *url, int url_len) {
-    char *json = run_cli("%s song-url %s", NETEASE_CLI, id);
+    char *json = run_cli("%s song-url %s 2>/dev/null", NETEASE_CLI, id);
     if (!json) return -1;
 
     int ret = -1;
