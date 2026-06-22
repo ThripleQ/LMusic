@@ -1144,8 +1144,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
     }
     prev_pi = cur_pi;
    }
-    // 都查不到 → 保留旧值（ESC 回菜单等）
-   }
    if (!loading && !quitting) {
     wattron(win, COLOR_PAIR(3));
     mvwhline(win, info_row, 0, ' ', col_w);
