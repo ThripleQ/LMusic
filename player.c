@@ -1055,14 +1055,8 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
   // 播放中不需要保留错误提示
   if (atomic_load(&g_state.state) == PLAYING) status_msg[0] = '\0';
 
-  if (status_msg[0] && time(NULL) < status_until) {
-   // 状态提示（🔒 等）：优先于 now_label 显示，3 秒后自动消失
-   wattron(win, COLOR_PAIR(3));
-   mvwhline(win, info_row, 0, ' ', col_w);
-   mvwprintw(win, info_row, 2, "%s", status_msg);
-   wattroff(win, COLOR_PAIR(3));
-  } else if (now_label[0]) {
-   // 常驻进度条：加载中也画
+  // ── 进度条行常驻：只要播过歌始终画，不受 status_msg 影响 ──
+  if (now_label[0]) {
    int st = atomic_load(&g_state.state);
    long long fo = atomic_load(&g_state.frame_offset);
    snd_pcm_uframes_t cf = (snd_pcm_uframes_t)(fo + atomic_load(&g_state.playback_frame));
@@ -1096,7 +1090,16 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
-   // 信息行：动态取播歌曲名
+  }
+
+  // ── 信息行：status_msg 优先，然后 now_label ──
+  if (status_msg[0] && time(NULL) < status_until) {
+   wattron(win, COLOR_PAIR(3));
+   mvwhline(win, info_row, 0, ' ', col_w);
+   mvwprintw(win, info_row, 2, "%s", status_msg);
+   wattroff(win, COLOR_PAIR(3));
+  } else if (now_label[0]) {
+   // 动态刷新信息行
    int cur_pi = atomic_load(&play_index);
    int local_cnt = atomic_load(&song_count);
    if (cur_pi >= 0) {
