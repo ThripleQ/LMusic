@@ -111,6 +111,10 @@ static int loading = 0;
 static int loading_done = 0;
 static int loading_filled = 0;
 static int loading_frame = 0;
+static struct timespec loading_ts;
+static int loading_started = 0;
+static struct timespec sprint_ts;
+static int sprint_init = 0;
 static char loading_msg[64];
 static char loading_buf[65536];
 static int loading_len = 0;
@@ -615,7 +619,7 @@ static void load_netease_liked(void) {
 
 static void start_loading(const char *cmd, const char *msg) {
     if (loading) return;
-    loading = 1; loading_done = 0; loading_filled = 0; loading_frame = 0;
+    loading = 1; loading_done = 0; loading_filled = 0; loading_frame = 0; loading_started = 0; sprint_init = 0;
     loading_len = 0; strncpy(loading_msg, msg, sizeof(loading_msg)-1);
     loading_fp = popen(cmd, "r");
     if (!loading_fp) { loading = 0; return; }
@@ -1279,6 +1283,7 @@ int main(int argc, char *argv[]) {
  set_escdelay(0);
  keypad(stdscr, TRUE);
  mousemask(BUTTON1_PRESSED | BUTTON3_PRESSED | BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
+ mouseinterval(0);
 
  curs_set(0);
  timeout(30);
@@ -1310,9 +1315,12 @@ int main(int argc, char *argv[]) {
   }
  }
 
- // ── 加载动画轮询 ──
+ // ── 加载动画轮询（基于系统时间，getch 非阻塞确保循环运转）──
  if (loading) {
-  loading_frame++;
+  if (!loading_started) { clock_gettime(CLOCK_MONOTONIC, &loading_ts); loading_started = 1; }
+  nodelay(stdscr, TRUE);
+  napms(20);  // ~50fps, 避免 CPU 跑满
+
   if (!loading_done && loading_fp) {
    while (1) {
     ssize_t r = read(loading_fd, loading_buf + loading_len, sizeof(loading_buf) - loading_len - 1);
@@ -1322,11 +1330,24 @@ int main(int argc, char *argv[]) {
      loading_done = 1; break;
     } else break;
    }
-   if (loading_frame % 6 == 0 && loading_filled < 20) loading_filled++;
-   } else if (loading_done) {
-    // CLI完成 -> 冲刺：每帧1格快速填满
-    if (loading_filled++ >= 20) { loading = 0; loading_done = 0; process_loading_result(); }
-   }
+  }
+
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  long ms = (now.tv_sec - loading_ts.tv_sec) * 1000 + (now.tv_nsec - loading_ts.tv_nsec) / 1000000;
+
+  if (!loading_done) {
+   // CLI 运行中：缓慢填充，最多到 60%
+   loading_filled = ms / 150;
+   if (loading_filled > 12) loading_filled = 12;
+  } else {
+   // CLI 完成 → 冲刺
+   if (!sprint_init) { clock_gettime(CLOCK_MONOTONIC, &sprint_ts); sprint_init = 1; }
+   long sprint_ms = (now.tv_sec - sprint_ts.tv_sec) * 1000 + (now.tv_nsec - sprint_ts.tv_nsec) / 1000000;
+   int spr = 12 + sprint_ms / 40;
+   if (spr > loading_filled) loading_filled = spr;
+   if (loading_filled >= 20) { loading_filled = 20; loading = 0; loading_done = 0; loading_started = 0; sprint_init = 0; nodelay(stdscr, FALSE); timeout(30); process_loading_result(); }
+  }
  }
 
  // 网易云目录切换：选中时自动加载菜单
@@ -1691,6 +1712,8 @@ input:
  {
   MEVENT ev;
   if (getmouse(&ev) != OK) break;
+  // 加载进行中时忽略鼠标，避免每点一下多跑一圈循环加速进度条
+  if (loading) break;
   int brows = getmaxy(stdscr);
   int bcols = getmaxx(stdscr);
   int lw = 20; if (lw > bcols/3) lw = bcols/3;
