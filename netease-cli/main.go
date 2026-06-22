@@ -43,6 +43,7 @@ func main() {
 		output(body)
 
 	case "song-url":
+		util.Sources = []string{"kugou", "kuwo", "migu", "qmusic"}
 		util.UNMSwitch = true
 		if len(os.Args) < 3 {
 			die("usage: netease-cli song-url <id> [level]")
