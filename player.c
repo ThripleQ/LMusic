@@ -1104,28 +1104,47 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
-   // 信息行：从对应 playlist 动态取歌名，避免列表循环切歌时 stale
-   // ⚠ 不 fallthrough：退出网易云后 ne_playlist 是菜单，查不到只能保留旧值
+   // 信息行：动态取播歌曲名
    int cur_pi = atomic_load(&play_index);
    int local_cnt = atomic_load(&song_count);
    if (cur_pi >= 0) {
-    if (playing_netease) {
-     if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
+    static int prev_pi = -1;
+    int ne_has = (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0]));
+    int local_has = (cur_pi < local_cnt && playlist[cur_pi].id[0]);
+    if (playing_netease && ne_has) {
+     // 主 playlist 有数据：按标记取
+     strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
+     if (ne_playlist[cur_pi].artist[0])
+      snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
+     else
+      strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
+    } else if (!playing_netease && local_has) {
+     strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
+     if (playlist[cur_pi].artist[0])
+      snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
+     else
+      strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+    } else if (cur_pi != prev_pi) {
+     // play_index 变了：标记可能过期，查另一个 playlist
+     if (ne_has) {
       strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
       if (ne_playlist[cur_pi].artist[0])
        snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
       else
        strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
-     }
-    } else {
-     if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
+      playing_netease = 1;
+     } else if (local_has) {
       strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
       if (playlist[cur_pi].artist[0])
        snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
       else
        strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
+      playing_netease = 0;
      }
     }
+    prev_pi = cur_pi;
+   }
+    // 都查不到 → 保留旧值（ESC 回菜单等）
    }
    if (!loading && !quitting) {
     wattron(win, COLOR_PAIR(3));
