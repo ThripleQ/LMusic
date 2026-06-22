@@ -1104,11 +1104,11 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
    bl_ += snprintf(bll + bl_, sizeof(bll) - bl_, " \u2502 %s", extra);
    mvwaddstr(win, bar_row, 0, bll);
    wattroff(win, COLOR_PAIR(5));
-   // 信息行：从 playlist 动态取歌名，避免列表循环切歌时 stale
+   // 信息行：从对应 playlist 动态取歌名，避免列表循环切歌时 stale
+   // ⚠ 不 fallthrough：退出网易云后 ne_playlist 是菜单，查不到只能保留旧值
    int cur_pi = atomic_load(&play_index);
    int local_cnt = atomic_load(&song_count);
    if (cur_pi >= 0) {
-    // 网易云歌曲优先查 ne_playlist，本地优先查 playlist
     if (playing_netease) {
      if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
       strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
@@ -1116,12 +1116,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
        snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
       else
        strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
-     } else if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
-      strncpy(now_label, playlist[cur_pi].aux_label, sizeof(now_label)-1);
-      if (playlist[cur_pi].artist[0])
-       snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
-      else
-       strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
      }
     } else {
      if (cur_pi < local_cnt && playlist[cur_pi].id[0]) {
@@ -1130,12 +1124,6 @@ static void draw_ui(WINDOW *win, int selected, int col_w) {
        snprintf(now_title, sizeof(now_title), "%s - %s", playlist[cur_pi].artist, playlist[cur_pi].title);
       else
        strncpy(now_title, playlist[cur_pi].title, sizeof(now_title)-1);
-     } else if (cur_pi < ne_count && isdigit((unsigned char)ne_playlist[cur_pi].id[0])) {
-      strncpy(now_label, ne_playlist[cur_pi].aux_label, sizeof(now_label)-1);
-      if (ne_playlist[cur_pi].artist[0])
-       snprintf(now_title, sizeof(now_title), "%s - %s", ne_playlist[cur_pi].artist, ne_playlist[cur_pi].title);
-      else
-       strncpy(now_title, ne_playlist[cur_pi].title, sizeof(now_title)-1);
      }
     }
    }
