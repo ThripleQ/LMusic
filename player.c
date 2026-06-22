@@ -1376,6 +1376,56 @@ int main(int argc, char *argv[]) {
  curs_set(0);
  timeout(30);
 
+ // ── 开屏 ──
+ {
+  int sy = getmaxy(stdscr), sx = getmaxx(stdscr);
+  if (sy >= 14 && sx >= 50) {
+   erase();
+   int box_h = 10, box_w = 44;
+   int bx = (sx - box_w) / 2, by = (sy - box_h) / 2;
+   if (bx < 0) bx = 0;
+   if (by < 0) by = 0;
+   // 外框
+   wattron(stdscr, COLOR_PAIR(4));
+   mvwhline(stdscr, by, bx + 1, ACS_HLINE, box_w - 2);
+   mvwhline(stdscr, by + box_h - 1, bx + 1, ACS_HLINE, box_w - 2);
+   mvwaddch(stdscr, by, bx, ACS_ULCORNER);
+   mvwaddch(stdscr, by, bx + box_w - 1, ACS_URCORNER);
+   mvwaddch(stdscr, by + box_h - 1, bx, ACS_LLCORNER);
+   mvwaddch(stdscr, by + box_h - 1, bx + box_w - 1, ACS_LRCORNER);
+   for (int r = by + 1; r < by + box_h - 1; r++)
+    mvwaddch(stdscr, r, bx, ACS_VLINE),
+    mvwaddch(stdscr, r, bx + box_w - 1, ACS_VLINE);
+   wattroff(stdscr, COLOR_PAIR(4));
+   // 内容：居中
+   int cx = bx + box_w / 2;
+   wattron(stdscr, COLOR_PAIR(1) | A_BOLD);
+   mvwaddstr(stdscr, by + 1, cx - 6, "  \u266b  LMusic  \u266b");
+   wattroff(stdscr, COLOR_PAIR(1) | A_BOLD);
+   wattron(stdscr, COLOR_PAIR(3));
+   mvwaddstr(stdscr, by + 2, cx - 12, "A simple terminal music player");
+   wattroff(stdscr, COLOR_PAIR(3));
+   if (netease_account_name[0]) {
+    wattron(stdscr, COLOR_PAIR(6) | A_BOLD);
+    char wl[64];
+    snprintf(wl, sizeof(wl), "\u2665 \u7f51\u6613\u4e91\u97f3\u4e50 (%s)", netease_account_name);
+    mvwaddstr(stdscr, by + 4, cx - (int)strlen(wl) / 2, wl);
+    wattroff(stdscr, COLOR_PAIR(6) | A_BOLD);
+   }
+   wattron(stdscr, COLOR_PAIR(3));
+   mvwaddstr(stdscr, by + 6, cx - 14, "Press any key to continue...");
+   wattroff(stdscr, COLOR_PAIR(3));
+   // 右下角版本
+   wattron(stdscr, COLOR_PAIR(4));
+   mvwaddstr(stdscr, by + 8, cx - 4, "v0.1.0");
+   wattroff(stdscr, COLOR_PAIR(4));
+   refresh();
+   timeout(2000);
+   getch();
+   timeout(30);
+  }
+ }
+
  int selected = init_dir, running = 1, col_w;
 
  while (running) {
