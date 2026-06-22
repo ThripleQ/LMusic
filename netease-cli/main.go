@@ -29,7 +29,6 @@ func main() {
 	// 配置 UNM（UnblockNeteaseMusic）自动解锁受限歌曲
 	util.ForceBestQuality = true
 	util.EnableLocalVip = true
-	util.UNMSwitch = true
 	util.ConfigInit()
 
 	cmd := os.Args[1]
@@ -44,6 +43,7 @@ func main() {
 		output(body)
 
 	case "song-url":
+		util.UNMSwitch = true
 		if len(os.Args) < 3 {
 			die("usage: netease-cli song-url <id> [level]")
 		}
